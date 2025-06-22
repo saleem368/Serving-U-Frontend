@@ -1,0 +1,55 @@
+
+{
+    "categories": [
+      {
+        "id": "normal",
+        "name": "Normal Wash",
+        "description": "Everyday clothing that can be machine washed"
+      },
+      {
+        "id": "dryclean",
+        "name": "Dry Clean",
+        "description": "Delicate items requiring professional dry cleaning"
+      },
+      {
+        "id": "easyclean",
+        "name": "Easy Clean",
+        "description": "Lightweight items needing gentle care"
+      },
+      {
+        "id": "handwash",
+        "name": "Hand Wash",
+        "description": "Special items that require hand washing"
+      }
+    ],
+    "items": [
+      {
+        "id": "n1",
+        "name": "T-Shirt",
+        "category": "normal",
+        "price": 2.5,
+        "image": "/assets/images/tshirt.jpg"
+      },
+      {
+        "id": "n2",
+        "name": "Jeans",
+        "category": "normal",
+        "price": 4.0,
+        "image": "/assets/images/jeans.jpg"
+      },
+      {
+        "id": "d1",
+        "name": "Suit Jacket",
+        "category": "dryclean",
+        "price": 8.0,
+        "image": "/assets/images/suit.jpg"
+      },
+      {
+        "id": "h1",
+        "name": "Lingerie",
+        "category": "handwash",
+        "price": 3.0,
+        "image": "/assets/images/lingerie.jpg"
+      }
+    ]
+  }

@@ -1,0 +1,238 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Color Variables */
+:root {
+  /* Blood Red Color Palette */
+  --blood-red-100: #feecec;
+  --blood-red-200: #fbc7c7;
+  --blood-red-300: #f9a2a2;
+  --blood-red-400: #f45959;
+  --blood-red-500: #ef0f0f;
+  --blood-red-600: #d70d0d;
+  --blood-red-700: #8f0909;
+  --blood-red-800: #6b0707;
+  --blood-red-900: #480404;
+
+  /* Cream Color Palette */
+  --cream-50: #fffdfa;
+  --cream-100: #fffaf5;
+  --cream-200: #fff3e5;
+  --cream-300: #ffebd6;
+  --cream-400: #ffddb8;
+  --cream-500: #ffce99;
+  --cream-600: #e6b98a;
+  --cream-700: #997b5c;
+  --cream-800: #735c45;
+  --cream-900: #4d3e2e;
+}
+
+/* Custom Color Classes */
+.bg-blood-red-500 {
+  background-color: var(--blood-red-500);
+}
+.bg-blood-red-600 {
+  background-color: var(--blood-red-600);
+}
+.bg-blood-red-800 {
+  background-color: var(--blood-red-800);
+}
+.text-blood-red-600 {
+  color: var(--blood-red-600);
+}
+.text-blood-red-800 {
+  color: var(--blood-red-800);
+}
+.border-blood-red-600 {
+  border-color: var(--blood-red-600);
+}
+
+.bg-cream-50 {
+  background-color: var(--cream-50);
+}
+.bg-cream-100 {
+  background-color: var(--cream-100);
+}
+.text-cream-500 {
+  color: var(--cream-500);
+}
+
+/* Hover States */
+.hover\:bg-blood-red-600:hover {
+  background-color: var(--blood-red-600);
+}
+.hover\:bg-blood-red-800:hover {
+  background-color: var(--blood-red-800);
+}
+.hover\:text-blood-red-600:hover {
+  color: var(--blood-red-600);
+}
+.hover\:text-blood-red-800:hover {
+  color: var(--blood-red-800);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.6s ease-out forwards;
+}
+
+.scale-in {
+  animation: scaleIn 0.5s ease-out forwards;
+}
+
+.delay-100 {
+  animation-delay: 0.1s;
+}
+
+.delay-200 {
+  animation-delay: 0.2s;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
+}
+
+.hover-scale {
+  transition: transform 0.3s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+/* Transition Classes */
+.transition-all {
+  transition: all 0.3s ease;
+}
+.transition-colors {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+.transition-transform {
+  transition: transform 0.3s ease;
+}
+/* Add to animations.css */
+@keyframes gradient-x {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes gradient-x-reverse {
+  0% { background-position: 100% 50%; }
+  50% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 3s ease infinite;
+}
+
+.animate-gradient-x-reverse {
+  background-size: 200% 200%;
+  animation: gradient-x-reverse 3s ease infinite;
+}
+
+.group-hover\:shadow-blood-red-500\/50:hover {
+  box-shadow: 0 0 15px rgba(239, 15, 15, 0.5);
+}
+
+.group-hover\:shadow-blood-red-400\/50:hover {
+  box-shadow: 0 0 15px rgba(244, 89, 89, 0.5);
+}
+
+@keyframes sewing {
+  0% { width: 0; }
+  95% { width: 100%; }
+  100% { width: 100%; }
+}
+.sewing-text {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  animation: sewing 2.5s steps(20, end) 1 forwards;
+}
+.needle-animate {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  animation: needle-move 2.5s linear 1 forwards;
+  opacity: 1;
+  pointer-events: none;
+}
+@keyframes needle-move {
+  0% { left: 0; opacity: 1; }
+  95% { left: 100%; opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+/* Custom aesthetic scrollbar for all pages */
+::-webkit-scrollbar {
+  width: 10px;
+  background: #f3f4f6;
+}
+::-webkit-scrollbar-thumb {
+  background: #b0b0b0; /* Subtle grey */
+  border-radius: 8px;
+  min-height: 40px;
+  border: 2px solid #f3f4f6;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #888888; /* Darker grey on hover */
+}
+::-webkit-scrollbar-corner {
+  background: #f3f4f6;
+}
+
+/* For Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #b0b0b0 #f3f4f6;
+}
+
+/* Premium Gold Graph Animation - Balanced Spacing, Slightly Higher Opacity */
+.premium-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  transform: rotate(-25deg) scale(1.2);
+}
+.premium-bg-graph-line {
+  position: absolute;
+  background: linear-gradient(90deg, #FFD700 0%, #fffbe6 100%);
+  opacity: 0.42; /* Increased from 0.32 to 0.42 for more visibility */
+  border-radius: 1px;
+}
+.premium-bg-graph-vertical {
+  width: 1.5px;
+  height: 140vh;
+  animation: gold-graph-vert 8s linear infinite;
+}
+.premium-bg-graph-horizontal {
+  height: 1.5px;
+  width: 140vw;
+  animation: gold-graph-horiz 10s linear infinite;
+}
+@keyframes gold-graph-vert {
+  0% { transform: translateY(-10vh); }
+  100% { transform: translateY(10vh); }
+}
+@keyframes gold-graph-horiz {
+  0% { transform: translateX(-10vw); }
+  100% { transform: translateX(10vw); }
+}
