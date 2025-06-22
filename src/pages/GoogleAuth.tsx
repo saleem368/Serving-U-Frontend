@@ -2,8 +2,10 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const API_BASE = import.meta.env.VITE_API_BASE 
+
 const CLIENT_ID = '650768241119-4tjf6br1okb16f056ordvleoolkiaggg.apps.googleusercontent.com';
-const REDIRECT_URI = 'http://localhost:5173/auth/callback'; // Make sure this matches the new callback route
+const REDIRECT_URI = `${API_BASE}/auth/callback`; // Make sure this matches the new callback route
 const SCOPE = 'profile email';
 const RESPONSE_TYPE = 'token';
 
@@ -15,7 +17,6 @@ function getProfileFromLocalStorage() {
   return { name: '', phone: '', address: '' };
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE 
 
 const GoogleAuth = () => {
   const navigate = useNavigate();
