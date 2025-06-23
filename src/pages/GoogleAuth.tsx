@@ -6,7 +6,7 @@ const API_BASE = import.meta.env.VITE_API_BASE;
 const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE;
 
 const CLIENT_ID = '650768241119-4tjf6br1okb16f056ordvleoolkiaggg.apps.googleusercontent.com';
-const REDIRECT_URI = `${API_BASE}/auth/callback`; // Make sure this matches the new callback route
+const REDIRECT_URI = `${FRONTEND_BASE}/auth/callback`; // Make sure this matches the new callback route
 const SCOPE = 'profile email';
 const RESPONSE_TYPE = 'token';
 
