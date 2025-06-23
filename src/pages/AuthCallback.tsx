@@ -1,15 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const API_BASE = import.meta.env.VITE_API_BASE; // Your backend URL (e.g., https://serving-u-backend.onrender.com)
-const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE; // Your frontend URL (e.g., https://serving-u-frontend.vercel.app)
-// Note: FRONTEND_BASE is correctly defined here but not directly used in the logic of this component
-// as the redirect itself has already happened. It's important for the *initiating* component (GoogleAuth.jsx)
-// and Google Cloud Console settings.
+const API_BASE = import.meta.env.VITE_API_BASE;
+const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE;
 
-// This function is useful if you want to retrieve existing profile data
-// to send along with the Google profile during the backend call.
-// This allows the backend to potentially update or merge user data.
 function getProfileFromLocalStorage() {
   try {
     const saved = localStorage.getItem('userProfile');
@@ -24,80 +18,94 @@ const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if the URL contains a hash, which is where Google puts the access token
+    console.log("[AuthCallback] Component mounted. Checking URL hash...");
+    console.log("[AuthCallback] Current URL:", window.location.href);
+
     if (window.location.hash) {
+      console.log("[AuthCallback] Hash found:", window.location.hash);
       const params = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = params.get('access_token');
+      const error = params.get('error');
+
+      if (error) {
+        console.error("[AuthCallback] Error from Google OAuth:", params.get('error_description') || error);
+        navigate('/login');
+        return;
+      }
 
       if (accessToken) {
-        // Step 1: Fetch user information from Google using the obtained access token
+        console.log("[AuthCallback] Access token found. Fetching Google user info...");
+        
         fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
           headers: { Authorization: `Bearer ${accessToken}` },
         })
           .then((res) => {
+            console.log("[AuthCallback] Google API response status:", res.status);
             if (!res.ok) {
-              throw new Error(`Failed to fetch user info from Google: ${res.statusText}`);
+              throw new Error(`Google API returned ${res.status}: ${res.statusText}`);
             }
             return res.json();
           })
-          .then(async (profile) => {
-            // Step 2: Send the Google profile data to your backend
-            // Your backend will then generate your application's JWT token
-            const localProfile = getProfileFromLocalStorage(); // Get local profile to potentially merge data
+          .then(async (googleProfile) => {
+            console.log("[AuthCallback] Google profile received:", googleProfile);
+            
+            const localProfile = getProfileFromLocalStorage();
+            console.log("[AuthCallback] Local profile:", localProfile);
+
+            const payload = {
+              email: googleProfile.email,
+              name: localProfile.name || googleProfile.name,
+              phone: localProfile.phone,
+              address: localProfile.address
+            };
+
+            console.log("[AuthCallback] Sending to backend:", payload);
             const response = await fetch(`${API_BASE}/api/google-auth/google`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: profile.email,
-                name: localProfile.name || profile.name, // Prefer local name if available, else Google's
-                phone: localProfile.phone, // Include phone from local storage
-                address: localProfile.address // Include address from local storage
-              }),
+              body: JSON.stringify(payload),
             });
 
+            console.log("[AuthCallback] Backend response status:", response.status);
+            const responseData = await response.json();
+            console.log("[AuthCallback] Backend response data:", responseData);
+
             if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(`Backend authentication failed: ${errorData.message || response.statusText}`);
+              throw new Error(responseData.message || `Backend returned ${response.status}`);
             }
 
-            const data = await response.json();
-
-            // Step 3: Handle the response from your backend
-            if (data.token) {
-              // Store the token, role, email, and full user profile from the backend
-              localStorage.setItem('token', data.token);
-              localStorage.setItem('role', data.role);
-              localStorage.setItem('userEmail', profile.email); // Store the Google email
-              localStorage.setItem('userProfile', JSON.stringify({
-                name: data.name || '',
-                phone: data.phone || '',
-                address: data.address || ''
-              }));
-
-              // --- CRITICAL CHANGE FOR REDIRECTION ---
-              // Redirect to your desired main website URL by performing a full page reload.
-              window.location.href = 'https://www.servingu.in/';
-            } else {
-              // If backend did not return a token, it means auth failed on server side
-              console.error('Backend did not provide a token.');
-              navigate('/login'); // Redirect to login
+            if (!responseData.token) {
+              throw new Error("Backend did not return an authentication token");
             }
+
+            // Store authentication data
+            localStorage.setItem('token', responseData.token);
+            localStorage.setItem('role', responseData.role);
+            localStorage.setItem('userEmail', googleProfile.email);
+            localStorage.setItem('userProfile', JSON.stringify({
+              name: responseData.name || '',
+              phone: responseData.phone || '',
+              address: responseData.address || ''
+            }));
+
+            console.log("[AuthCallback] Authentication successful. Redirecting to servingu.in...");
+            window.location.href = 'https://www.servingu.in/';
           })
           .catch((error) => {
-            // Catch any errors in the fetch chain (Google API or your backend API)
-            console.error('Google authentication process failed:', error);
-            navigate('/login'); // Redirect to login on any error
+            console.error("[AuthCallback] Error during authentication process:", error);
+            localStorage.removeItem('token');
+            localStorage.removeItem('userProfile');
+            navigate('/login', { state: { error: error.message } });
           });
       } else {
-        // If there's a hash but no access token (e.g., user cancelled Google login)
-        console.warn("No access token found in URL hash.");
-        navigate('/login'); // Redirect to login
+        console.warn("[AuthCallback] No access token found in URL hash");
+        navigate('/login');
       }
     } else {
-      // If no hash is present, meaning this page was accessed directly or not via Google redirect
-      navigate('/login'); // Redirect to login
+      console.warn("[AuthCallback] No hash found in URL");
+      navigate('/login');
     }
-  }, [navigate]); // navigate is a dependency of useEffect
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
