@@ -20,7 +20,6 @@ function getProfileFromLocalStorage() {
   return { name: '', phone: '', address: '' };
 }
 
-
 const AuthCallback = () => {
   const navigate = useNavigate();
 
@@ -74,7 +73,10 @@ const AuthCallback = () => {
                 phone: data.phone || '',
                 address: data.address || ''
               }));
-              navigate('/'); // Navigate to the home page or dashboard
+
+              // --- CRITICAL CHANGE FOR REDIRECTION ---
+              // Redirect to your desired main website URL by performing a full page reload.
+              window.location.href = 'https://www.servingu.in/';
             } else {
               // If backend did not return a token, it means auth failed on server side
               console.error('Backend did not provide a token.');
