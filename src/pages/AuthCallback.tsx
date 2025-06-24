@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
+const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE;
 
 function getProfileFromLocalStorage() {
   try {
@@ -34,20 +35,20 @@ const AuthCallback = () => {
 
       if (accessToken) {
         console.log("[AuthCallback] Access token found. Fetching Google user info...");
-
+        
         fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken}` },
+          headers: { Authorization: Bearer ${accessToken} },
         })
           .then((res) => {
             console.log("[AuthCallback] Google API response status:", res.status);
             if (!res.ok) {
-              throw new Error(`Google API returned ${res.status}: ${res.statusText}`);
+              throw new Error(Google API returned ${res.status}: ${res.statusText});
             }
             return res.json();
           })
           .then(async (googleProfile) => {
             console.log("[AuthCallback] Google profile received:", googleProfile);
-
+            
             const localProfile = getProfileFromLocalStorage();
             console.log("[AuthCallback] Local profile:", localProfile);
 
@@ -59,7 +60,7 @@ const AuthCallback = () => {
             };
 
             console.log("[AuthCallback] Sending to backend:", payload);
-            const response = await fetch(`${API_BASE}/api/google-auth/google`, {
+            const response = await fetch(${API_BASE}/api/google-auth/google, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload),
@@ -70,13 +71,14 @@ const AuthCallback = () => {
             console.log("[AuthCallback] Backend response data:", responseData);
 
             if (!response.ok) {
-              throw new Error(responseData.message || `Backend returned ${response.status}`);
+              throw new Error(responseData.message || Backend returned ${response.status});
             }
 
             if (!responseData.token) {
               throw new Error("Backend did not return an authentication token");
             }
 
+            // Store authentication data
             localStorage.setItem('token', responseData.token);
             localStorage.setItem('role', responseData.role);
             localStorage.setItem('userEmail', googleProfile.email);
@@ -86,7 +88,7 @@ const AuthCallback = () => {
               address: responseData.address || ''
             }));
 
-            console.log("[AuthCallback] Authentication successful. Redirecting...");
+            console.log("[AuthCallback] Authentication successful. Redirecting to servingu.in...");
             window.location.href = 'https://www.servingu.in/';
           })
           .catch((error) => {
@@ -112,4 +114,4 @@ const AuthCallback = () => {
   );
 };
 
-export default AuthCallback;
+export default AuthCallback
