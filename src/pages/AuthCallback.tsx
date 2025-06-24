@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
-const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE;
 
 function getProfileFromLocalStorage() {
   try {
