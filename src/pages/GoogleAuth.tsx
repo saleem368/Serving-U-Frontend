@@ -9,7 +9,7 @@ const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE;
 const CLIENT_ID = '650768241119-4tjf6br1okb16f056ordvleoolkiaggg.apps.googleusercontent.com';
 // This REDIRECT_URI is critical: It must exactly match one of the Authorized Redirect URIs
 // configured in your Google Cloud Console for your OAuth 2.0 Client ID.
-const REDIRECT_URI = `${FRONTEND_BASE}/auth/callback`; 
+const REDIRECT_URI = `${VITE_FRONTEND_BASE}/auth/callback`; 
 const SCOPE = 'profile email';
 const RESPONSE_TYPE = 'token';
 
