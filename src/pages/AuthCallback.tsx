@@ -36,7 +36,7 @@ const AuthCallback = () => {
         console.log("[AuthCallback] Access token found. Fetching Google user info...");
         
         fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: { Authorization: Bearer ${accessToken} },
+          headers: { Authorization: `Bearer ${accessToken}` },
         })
           .then((res) => {
             console.log("[AuthCallback] Google API response status:", res.status);
