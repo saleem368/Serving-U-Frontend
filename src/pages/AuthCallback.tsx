@@ -17,79 +17,92 @@ const AuthCallback = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const runAuthFlow = async () => {
-      console.log("[AuthCallback] Mounted");
+    console.log("[AuthCallback] Component mounted. Checking URL hash...");
+    console.log("[AuthCallback] Current URL:", window.location.href);
 
-      const hash = window.location.hash;
-      if (!hash) {
-        console.warn("[AuthCallback] No hash in URL");
-        return navigate('/login');
-      }
-
-      const params = new URLSearchParams(hash.substring(1));
+    if (window.location.hash) {
+      console.log("[AuthCallback] Hash found:", window.location.hash);
+      const params = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = params.get('access_token');
       const error = params.get('error');
 
       if (error) {
-        console.error("[AuthCallback] OAuth error:", error);
-        return navigate('/login');
+        console.error("[AuthCallback] Error from Google OAuth:", params.get('error_description') || error);
+        navigate('/login');
+        return;
       }
 
-      if (!accessToken) {
-        console.warn("[AuthCallback] No access token found");
-        return navigate('/login');
-      }
+      if (accessToken) {
+        console.log("[AuthCallback] Access token found. Fetching Google user info...");
 
-      try {
-        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
           headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        })
+          .then((res) => {
+            console.log("[AuthCallback] Google API response status:", res.status);
+            if (!res.ok) {
+              throw new Error(`Google API returned ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+          })
+          .then(async (googleProfile) => {
+            console.log("[AuthCallback] Google profile received:", googleProfile);
 
-        if (!userInfoRes.ok) throw new Error('Failed to fetch user info');
-        const googleProfile = await userInfoRes.json();
-        console.log("[AuthCallback] Google profile:", googleProfile);
+            const localProfile = getProfileFromLocalStorage();
+            console.log("[AuthCallback] Local profile:", localProfile);
 
-        const localProfile = getProfileFromLocalStorage();
-        const payload = {
-          email: googleProfile.email,
-          name: localProfile.name || googleProfile.name,
-          phone: localProfile.phone,
-          address: localProfile.address,
-        };
+            const payload = {
+              email: googleProfile.email,
+              name: localProfile.name || googleProfile.name,
+              phone: localProfile.phone,
+              address: localProfile.address
+            };
 
-        const backendRes = await fetch(`${API_BASE}/api/google-auth/google`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+            console.log("[AuthCallback] Sending to backend:", payload);
+            const response = await fetch(`${API_BASE}/api/google-auth/google`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
 
-        const backendData = await backendRes.json();
-        console.log("[AuthCallback] Backend response:", backendData);
+            console.log("[AuthCallback] Backend response status:", response.status);
+            const responseData = await response.json();
+            console.log("[AuthCallback] Backend response data:", responseData);
 
-        if (!backendRes.ok || !backendData.token) {
-          throw new Error(backendData.message || 'Login failed');
-        }
+            if (!response.ok) {
+              throw new Error(responseData.message || `Backend returned ${response.status}`);
+            }
 
-        // Save to localStorage
-        localStorage.setItem('token', backendData.token);
-        localStorage.setItem('role', backendData.role);
-        localStorage.setItem('userEmail', googleProfile.email);
-        localStorage.setItem('userProfile', JSON.stringify({
-          name: backendData.name || '',
-          phone: backendData.phone || '',
-          address: backendData.address || ''
-        }));
+            if (!responseData.token) {
+              throw new Error("Backend did not return an authentication token");
+            }
 
-        window.location.href = 'https://www.servingu.in/';
-      } catch (err) {
-        console.error("[AuthCallback] Error:", err);
-        localStorage.removeItem('token');
-        localStorage.removeItem('userProfile');
+            localStorage.setItem('token', responseData.token);
+            localStorage.setItem('role', responseData.role);
+            localStorage.setItem('userEmail', googleProfile.email);
+            localStorage.setItem('userProfile', JSON.stringify({
+              name: responseData.name || '',
+              phone: responseData.phone || '',
+              address: responseData.address || ''
+            }));
+
+            console.log("[AuthCallback] Authentication successful. Redirecting...");
+            window.location.href = 'https://www.servingu.in/';
+          })
+          .catch((error) => {
+            console.error("[AuthCallback] Error during authentication process:", error);
+            localStorage.removeItem('token');
+            localStorage.removeItem('userProfile');
+            navigate('/login', { state: { error: error.message } });
+          });
+      } else {
+        console.warn("[AuthCallback] No access token found in URL hash");
         navigate('/login');
       }
-    };
-
-    runAuthFlow();
+    } else {
+      console.warn("[AuthCallback] No hash found in URL");
+      navigate('/login');
+    }
   }, [navigate]);
 
   return (
