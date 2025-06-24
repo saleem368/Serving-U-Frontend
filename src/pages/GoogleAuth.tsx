@@ -3,10 +3,9 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const API_BASE = import.meta.env.VITE_API_BASE;
-const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE; // Make sure this is set in your .env and Vercel env variables
+const FRONTEND_BASE = import.meta.env.VITE_FRONTEND_BASE;
 
 const CLIENT_ID = '650768241119-4tjf6br1okb16f056ordvleoolkiaggg.apps.googleusercontent.com';
-// Correct usage of FRONTEND_BASE here:
 const REDIRECT_URI = `${FRONTEND_BASE}/auth/callback`;
 const SCOPE = 'profile email';
 const RESPONSE_TYPE = 'token';
@@ -23,58 +22,62 @@ const GoogleAuth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (window.location.hash) {
-      const params = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = params.get('access_token');
-      if (accessToken) {
-        fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error('Failed to fetch Google user info');
-            return res.json();
-          })
-          .then(async (profile) => {
+    const handleOAuthRedirect = async () => {
+      if (window.location.hash) {
+        const params = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = params.get('access_token');
+
+        if (accessToken) {
+          try {
+            // Step 1: Fetch Google user profile
+            const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
+            const profile = await res.json();
+
+            // Step 2: Send to backend
             const localProfile = getProfileFromLocalStorage();
-            const response = await fetch(`${API_BASE}/api/google-auth/google`, {
+            const payload = {
+              email: profile.email,
+              name: localProfile.name || profile.name,
+              phone: localProfile.phone,
+              address: localProfile.address,
+            };
+
+            const backendRes = await fetch(`${API_BASE}/api/google-auth/google`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: profile.email,
-                name: localProfile.name || profile.name,
-                phone: localProfile.phone,
-                address: localProfile.address,
-              }),
+              body: JSON.stringify(payload),
             });
 
-            const data = await response.json();
+            const data = await backendRes.json();
 
             if (data.token) {
+              // Step 3: Store auth details and redirect
               localStorage.setItem('token', data.token);
               localStorage.setItem('role', data.role);
               localStorage.setItem('userEmail', profile.email);
-              localStorage.setItem(
-                'userProfile',
-                JSON.stringify({
-                  name: data.name || '',
-                  phone: data.phone || '',
-                  address: data.address || '',
-                }),
-              );
+              localStorage.setItem('userProfile', JSON.stringify({
+                name: data.name || '',
+                phone: data.phone || '',
+                address: data.address || ''
+              }));
+
               navigate('/');
             } else {
-              console.error('Backend did not return a token:', data.message);
-              navigate('/login');
+              throw new Error('Backend did not return a valid token.');
             }
-          })
-          .catch((error) => {
-            console.error('Error during Google user info fetch or backend communication:', error);
+          } catch (err) {
+            console.error('[GoogleAuth] Error during OAuth flow:', err);
             navigate('/login');
-          });
-      } else {
-        navigate('/login');
+          }
+        } else {
+          navigate('/login');
+        }
       }
-    }
+    };
+
+    handleOAuthRedirect();
   }, [navigate]);
 
   const handleLogin = () => {
@@ -91,25 +94,13 @@ const GoogleAuth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-2 relative overflow-hidden">
       <div className="premium-bg">
-        {/* Gold grid background lines */}
-        <div className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: '10%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: '20%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: '30%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: '40%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: '50%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: '60%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: '70%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: '80%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: '90%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: '10%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: '20%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: '30%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: '40%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: '50%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: '60%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: '70%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: '80%' }} />
-        <div className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: '90%' }} />
+        {/* Grid background (optional visual effect) */}
+        {Array.from({ length: 9 }, (_, i) => (
+          <div key={i} className="premium-bg-graph-line premium-bg-graph-vertical" style={{ left: `${(i + 1) * 10}%` }} />
+        ))}
+        {Array.from({ length: 9 }, (_, i) => (
+          <div key={i} className="premium-bg-graph-line premium-bg-graph-horizontal" style={{ top: `${(i + 1) * 10}%` }} />
+        ))}
       </div>
       <div className="relative z-10 w-full max-w-md bg-white bg-opacity-90 rounded-xl shadow-xl p-8 md:p-12 border border-gray-200 flex flex-col items-center">
         <h1 className="text-2xl md:text-3xl font-extrabold text-blood-red-600 mb-6 tracking-tight text-center">
