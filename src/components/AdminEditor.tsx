@@ -10,7 +10,8 @@ type Item = {
   image?: string;
   images?: string[];
   description?: string;
-  sizes?: string[]; // Add sizes to type
+  sizes?: string[];
+  unit?: string; // Add unit field
 };
 
 type EditableItem = Item & { _replaceFiles?: (File | undefined)[] };
@@ -37,13 +38,14 @@ const LAUNDRY_CATEGORIES = [
 const AdminEditor = () => {
   const [section, setSection] = useState<'laundry' | 'unstitched'>('laundry');
   const [items, setItems] = useState<Item[]>([]);
-  const [newItem, setNewItem] = useState<{ name: string; category: string; price: string; image: string; description?: string; sizes?: string[] }>({
+  const [newItem, setNewItem] = useState<{ name: string; category: string; price: string; image: string; description?: string; sizes?: string[]; unit?: string }>({
     name: '',
     category: '',
     price: '',
     image: '',
     description: '',
     sizes: [],
+    unit: '', // empty default
   });
   const [editingItem, setEditingItem] = useState<EditableItem | null>(null);
   const [showEditBar, setShowEditBar] = useState<'add' | 'edit' | false>(false);
@@ -77,7 +79,13 @@ const AdminEditor = () => {
     fetchData();
   }, [section, fetchData]);
 
-  const handleAdd = async () => {
+  const handleAddOrEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (section === 'laundry' && (!newItem.unit || newItem.unit === '')) {
+      setError('Please select a unit for the laundry item.');
+      return;
+    }
     if (!newItem.name || !newItem.price) {
       setError('Name and price are required');
       return;
@@ -95,18 +103,40 @@ const AdminEditor = () => {
     try {
       const endpoint = `${API_BASE}/api/${section}`;
       const formData = new FormData();
+      // Append all text fields first
       formData.append('name', newItem.name);
-      if (section === 'laundry') formData.append('category', newItem.category);
+      if (section === 'laundry') {
+        if (typeof newItem.unit === 'string' && (newItem.unit === 'kg' || newItem.unit === 'pcs')) {
+          formData.append('unit', newItem.unit);
+        } else {
+          setError('Please select a valid unit for the laundry item.');
+          setIsLoading(false);
+          return;
+        }
+        formData.append('category', newItem.category);
+      }
       formData.append('price', newItem.price);
       if (section === 'unstitched') {
         formData.append('description', newItem.description || '');
-        // Always send sizes, even if empty or not
         formData.append('sizes', (newItem.sizes && newItem.sizes.length > 0)
           ? JSON.stringify(newItem.sizes)
           : JSON.stringify([]));
+      }
+      // Debug: log all FormData entries before appending files
+      console.log('FormData before files:');
+      for (const [key, value] of formData.entries()) {
+        console.log(key, value);
+      }
+      // Now append file fields
+      if (section === 'unstitched') {
         imageFiles.forEach((file) => formData.append('images', file));
       } else if (imageFile) {
         formData.append('image', imageFile);
+      }
+      // Debug: log all FormData entries after appending files
+      console.log('FormData after files:');
+      for (const [key, value] of formData.entries()) {
+        console.log(key, value);
       }
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -172,10 +202,45 @@ const AdminEditor = () => {
       if (section === 'laundry' && imageFile) {
         // If updating image, use FormData
         const formData = new FormData();
+        // Append all text fields first
         formData.append('name', editingItem.name);
         formData.append('category', editingItem.category || '');
         formData.append('price', editingItem.price.toString());
+        if (editingItem.unit && (editingItem.unit === 'kg' || editingItem.unit === 'pcs')) {
+          formData.append('unit', editingItem.unit);
+        }
+        // Debug: log all FormData entries before appending files
+        console.log('FormData before files (update):');
+        for (const [key, value] of formData.entries()) {
+          console.log(key, value);
+        }
         formData.append('image', imageFile);
+        // Debug: log all FormData entries after appending files
+        console.log('FormData after files (update):');
+        for (const [key, value] of formData.entries()) {
+          console.log(key, value);
+        }
+        response = await fetch(endpoint, {
+          method: 'PUT',
+          body: formData,
+        });
+      } else if (section === 'laundry') {
+        // Always send all fields for laundry, including unit
+        const formData = new FormData();
+        formData.append('name', editingItem.name);
+        formData.append('category', editingItem.category || '');
+        formData.append('price', editingItem.price.toString());
+        if (editingItem.unit && (editingItem.unit === 'kg' || editingItem.unit === 'pcs')) {
+          formData.append('unit', editingItem.unit);
+        }
+        if (editingItem.image && typeof editingItem.image === 'string') {
+          formData.append('image', editingItem.image);
+        }
+        // Debug: log all FormData entries before sending
+        console.log('FormData (update, no new image):');
+        for (const [key, value] of formData.entries()) {
+          console.log(key, value);
+        }
         response = await fetch(endpoint, {
           method: 'PUT',
           body: formData,
@@ -188,7 +253,6 @@ const AdminEditor = () => {
         if (editingItem.sizes && editingItem.sizes.length > 0) {
           formData.append('sizes', JSON.stringify(editingItem.sizes));
         }
-        // Always send the current images array as JSON string
         if (editingItem.images) {
           formData.append('images', JSON.stringify(editingItem.images));
         }
@@ -198,6 +262,10 @@ const AdminEditor = () => {
             formData.append('replaceIndexes', idx.toString());
           }
         });
+        // Debug: log all FormData entries
+        for (const pair of formData.entries()) {
+          console.log('FormData:', pair[0], pair[1]);
+        }
         response = await fetch(endpoint, {
           method: 'PUT',
           body: formData,
@@ -210,23 +278,24 @@ const AdminEditor = () => {
         if (editingItem.sizes && editingItem.sizes.length > 0) {
           formData.append('sizes', JSON.stringify(editingItem.sizes));
         }
-        // Always send the current images array as JSON string
         if (editingItem.images) {
           formData.append('images', JSON.stringify(editingItem.images));
         }
         imageFiles.forEach(file => formData.append('replaceImages', file));
+        // Debug: log all FormData entries
+        for (const pair of formData.entries()) {
+          console.log('FormData:', pair[0], pair[1]);
+        }
         response = await fetch(endpoint, {
           method: 'PUT',
           body: formData,
         });
-      } else {
-        // No image update, send JSON
-        // For unstitched: if images have been deleted, send the updated images array
+      } else if (section === 'unstitched') {
         const body = { ...editingItem };
-        if (section === 'unstitched' && editingItem.images) {
+        if (editingItem.images) {
           body.images = editingItem.images;
         }
-        if (section === 'unstitched' && editingItem.sizes) {
+        if (editingItem.sizes) {
           body.sizes = editingItem.sizes;
         }
         response = await fetch(endpoint, {
@@ -236,6 +305,7 @@ const AdminEditor = () => {
         });
       }
 
+      if (!response) throw new Error('No response from update request');
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update item');
@@ -409,6 +479,28 @@ const AdminEditor = () => {
                     </select>
                   </div>
                 )}
+                {/* Unit for laundry */}
+                {section === 'laundry' && (
+                  <div className="md:col-span-2">
+                    <label className="block text-gray-700 font-semibold mb-1">Unit</label>
+                    <select
+                      className="w-full border rounded px-3 py-2"
+                      value={showEditBar === 'add' ? newItem.unit : editingItem?.unit || ''}
+                      onChange={e => {
+                        if (showEditBar === 'add') {
+                          setNewItem({ ...newItem, unit: e.target.value });
+                        } else if (editingItem) {
+                          setEditingItem({ ...editingItem, unit: e.target.value });
+                        }
+                      }}
+                      required
+                    >
+                      <option value="">Select Unit</option>
+                      <option value="kg">kg</option>
+                      <option value="pcs">pcs</option>
+                    </select>
+                  </div>
+                )}
                 {/* Description for unstitched only */}
                 {section === 'unstitched' && (
                   <div className="md:col-span-2">
@@ -543,7 +635,7 @@ const AdminEditor = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={showEditBar === 'add' ? handleAdd : handleUpdate}
+                  onClick={showEditBar === 'add' ? handleAddOrEdit : handleUpdate}
                   className="px-4 py-2 bg-blood-red-600 text-white rounded shadow hover:bg-blood-red-700 focus:outline-none transition-all duration-150 text-xs md:text-sm"
                   disabled={isLoading}
                 >
