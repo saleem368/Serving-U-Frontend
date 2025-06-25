@@ -21,6 +21,7 @@ type Order = {
   };
   items: OrderItem[];
   total: number;
+  adminTotal?: number; // Add admin total field
   timestamp: string;
   status?: 'pending' | 'accepted' | 'rejected' | 'completed';
   paymentStatus?: 'Paid' | 'Cash on Delivery'; // Add paymentStatus
@@ -46,6 +47,8 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
   const [alterations, setAlterations] = useState<Alteration[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'orders' | 'alterations'>('orders');
+  const [editingTotal, setEditingTotal] = useState<string | null>(null);
+  const [tempTotal, setTempTotal] = useState<string>('');
 
   // Remove setInterval polling and add a manual refresh button
   const fetchOrdersAndAlterations = async () => {
@@ -202,6 +205,78 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                           <p className="text-sm mt-1">
                             <span className="font-semibold">Payment:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{order.paymentStatus === 'Paid' ? 'Paid' : 'Cash on Delivery'}</span>
                           </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="font-semibold">Admin Total:</span>
+                            {editingTotal === order._id ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  value={tempTotal}
+                                  onChange={(e) => setTempTotal(e.target.value)}
+                                  className="border rounded px-2 py-1 w-20 text-sm"
+                                  placeholder="0"
+                                />
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      console.log('Updating admin total for order:', order._id, 'to:', tempTotal);
+                                      const response = await fetch(`${API_BASE}/api/orders/${order._id}/total`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ adminTotal: parseFloat(tempTotal) || null }),
+                                      });
+                                      
+                                      if (!response.ok) {
+                                        const errorData = await response.json();
+                                        throw new Error(errorData.message || 'Failed to update admin total');
+                                      }
+                                      
+                                      const updatedOrder = await response.json();
+                                      console.log('Successfully updated order:', updatedOrder);
+                                      
+                                      setOrders(orders => orders.map(o => 
+                                        o._id === order._id 
+                                          ? { ...o, adminTotal: updatedOrder.adminTotal } 
+                                          : o
+                                      ));
+                                      setEditingTotal(null);
+                                      setTempTotal('');
+                                    } catch (error) {
+                                      console.error('Error updating admin total:', error);
+                                      alert('Failed to update admin total: ' + (error as Error).message);
+                                    }
+                                  }}
+                                  className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingTotal(null);
+                                    setTempTotal('');
+                                  }}
+                                  className="bg-gray-500 text-white px-2 py-1 rounded text-xs hover:bg-gray-600"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="text-blood-red-600 font-bold">
+                                  ₹{order.adminTotal ? order.adminTotal.toFixed(2) : 'Not set'}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setEditingTotal(order._id);
+                                    setTempTotal(order.adminTotal ? order.adminTotal.toString() : '');
+                                  }}
+                                  className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           {order.status === 'pending' && (
                             <div className="flex gap-2 mt-2">
                               <button
