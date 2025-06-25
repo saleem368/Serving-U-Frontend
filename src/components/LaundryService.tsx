@@ -8,14 +8,14 @@ import CartSidebar from './CartSidebar';
 import { SkeletonBox } from './Skeletons';
 
 type LaundryItem = {
-  _id: string; // Matches MongoDB's `_id` field
+  _id: string;
   name: string;
   category: string;
   price: number;
   image: string;
+  unit: string; // Unit is now required
 };
 
-// Predefined laundry categories
 const LAUNDRY_CATEGORIES = [
   'Normal',
   'Dry Clean',
@@ -33,9 +33,8 @@ const LaundryServicePage = () => {
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const API_BASE = import.meta.env.VITE_API_BASE ;
+  const API_BASE = import.meta.env.VITE_API_BASE;
 
-  // Fetch categories and items from the backend
   useEffect(() => {
     const fetchCategoriesAndItems = async () => {
       try {
@@ -57,7 +56,6 @@ const LaundryServicePage = () => {
     ? items.filter((item) => item.category === selectedCategory)
     : items;
 
-  // Helper to get full image URL
   const getImageUrl = (image: string) => {
     if (!image) return '';
     if (image.startsWith('http')) return image;
@@ -101,7 +99,9 @@ const LaundryServicePage = () => {
                 )}
                 <div>
                   <h3 className="font-medium text-gray-800 text-base md:text-lg">{item.name}</h3>
-                  <p className="text-blood-red-600 font-bold text-sm md:text-base">{item.price} Rs/kg</p>
+                  <p className="text-blood-red-600 font-bold text-sm md:text-base">
+                    {item.price} Rs/{item.unit} {/* Unit is now required */}
+                  </p>
                 </div>
               </div>
               <button
@@ -143,7 +143,6 @@ const LaundryServicePage = () => {
         </div>
       )}
 
-      {/* Hide scrollbar utility - Injected CSS */}
       <style>
         {`
           .hide-scrollbar::-webkit-scrollbar { display: none; }
