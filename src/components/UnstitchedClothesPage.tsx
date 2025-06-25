@@ -72,14 +72,9 @@ const UnstitchedClothesPage = () => {
         if (child) child.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     };
-    const next = () => scrollTo((current + 1) % images.length);
-    const prev = () => scrollTo((current - 1 + images.length) % images.length);
     return (
       <div className="relative w-full">
         <div className="flex items-center">
-          {images.length > 1 && (
-            <button onClick={prev} className="p-1 rounded-full bg-gray-200 hover:bg-gray-300 mr-2" aria-label="Previous image">&#8592;</button>
-          )}
           <div
             ref={scrollRef}
             className="flex overflow-x-auto gap-2 scrollbar-none snap-x snap-mandatory rounded-xl"
@@ -96,9 +91,6 @@ const UnstitchedClothesPage = () => {
               />
             ))}
           </div>
-          {images.length > 1 && (
-            <button onClick={next} className="p-1 rounded-full bg-gray-200 hover:bg-gray-300 ml-2" aria-label="Next image">&#8594;</button>
-          )}
         </div>
         {images.length > 1 && (
           <div className="flex justify-center mt-1 space-x-1">
