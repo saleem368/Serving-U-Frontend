@@ -13,36 +13,44 @@ const CustomerOrders = () => {
   // Fetch orders and alterations and update only if status changes
   const fetchOrdersAndAlterations = async () => {
     setLoading(true);
-    const [ordersRes, alterationsRes] = await Promise.all([
-      fetch(`${API_BASE}/api/orders`),
-      fetch(`${API_BASE}/api/alterations`),
-    ]);
-    const ordersData = await ordersRes.json();
-    const alterationsData = await alterationsRes.json();
-    let shouldUpdate = false;
-    for (const order of ordersData) {
-      if (prevStatuses.current[order._id] !== order.status) {
-        shouldUpdate = true;
-        break;
+    try {
+      const [ordersRes, alterationsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/orders`),
+        fetch(`${API_BASE}/api/alterations`),
+      ]);
+      const ordersData = await ordersRes.json();
+      const alterationsData = await alterationsRes.json();
+      
+      console.log('Fetched orders data:', ordersData);
+      console.log('Orders with adminTotal:', ordersData.filter((order: any) => order.adminTotal));
+      
+      let shouldUpdate = false;
+      for (const order of ordersData) {
+        if (prevStatuses.current[order._id] !== order.status) {
+          shouldUpdate = true;
+          break;
+        }
       }
-    }
-    for (const alt of alterationsData) {
-      if (prevStatuses.current[alt._id] !== alt.status) {
-        shouldUpdate = true;
-        break;
+      for (const alt of alterationsData) {
+        if (prevStatuses.current[alt._id] !== alt.status) {
+          shouldUpdate = true;
+          break;
+        }
       }
-    }
-    if (
-      shouldUpdate ||
-      orders.length !== ordersData.length ||
-      alterations.length !== alterationsData.length
-    ) {
-      setOrders(ordersData);
-      setAlterations(alterationsData);
-      prevStatuses.current = {
-        ...Object.fromEntries(ordersData.map((o: any) => [o._id, o.status])),
-        ...Object.fromEntries(alterationsData.map((a: any) => [a._id, a.status])),
-      };
+      if (
+        shouldUpdate ||
+        orders.length !== ordersData.length ||
+        alterations.length !== alterationsData.length
+      ) {
+        setOrders(ordersData);
+        setAlterations(alterationsData);
+        prevStatuses.current = {
+          ...Object.fromEntries(ordersData.map((o: any) => [o._id, o.status])),
+          ...Object.fromEntries(alterationsData.map((a: any) => [a._id, a.status])),
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching orders and alterations:', error);
     }
     setLoading(false);
   };
@@ -163,6 +171,11 @@ const CustomerOrders = () => {
                         )}
                       </div>
                       <p className="text-md font-bold text-gray-800 mt-2">Total: ₹{unstitchedTotal.toFixed(2)}</p>
+                      {order.adminTotal && (
+                        <p className="text-md font-bold text-blood-red-600 mt-1">
+                          Final Total: ₹{order.adminTotal.toFixed(2)}
+                        </p>
+                      )}
                       <p className="text-sm mt-2">
                         <span className="font-semibold">Status:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : order.status === 'accepted' ? 'bg-green-100 text-green-700' : order.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{order.status || 'pending'}</span>
                       </p>
