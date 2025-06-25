@@ -69,7 +69,7 @@ const LaundryServicePage = () => {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white p-2 shadow-sm">
         <h1 className="text-xl font-bold text-center text-blood-red-600">Laundry Service</h1>
-        <div className="flex space-x-2 overflow-x-auto py-2">
+        <div className="flex space-x-2 overflow-x-auto overflow-y-hidden py-2 hide-scrollbar">
           {categories.map((category, index) => (
             <button
               key={index}
@@ -142,6 +142,14 @@ const LaundryServicePage = () => {
           Order submitted successfully!
         </div>
       )}
+
+      {/* Hide scrollbar utility - Injected CSS */}
+      <style>
+        {`
+          .hide-scrollbar::-webkit-scrollbar { display: none; }
+          .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        `}
+      </style>
     </div>
   );
 };
