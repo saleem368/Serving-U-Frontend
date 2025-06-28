@@ -277,6 +277,15 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
                   maxLength={300}
                   style={{ resize: 'vertical' }}
                 />
+                
+                <div className="flex justify-center items-center mt-3 mb-1">
+                  <span className="text-xs text-gray-500">
+                  For any query contact:&nbsp;
+                  <a href="tel:8427631266" className="text-blood-red-600 font-semibold hover:underline">
+                    84276 31266
+                  </a>
+                  </span>
+                </div>
                 {/* Order Summary */}
                 <div className="border-t pt-2">
                   <div className="flex justify-between font-bold text-sm">
