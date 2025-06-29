@@ -23,7 +23,7 @@ type Order = {
   total: number;
   adminTotal?: number; // Add admin total field
   timestamp: string;
-  status?: 'pending' | 'accepted' | 'rejected' | 'completed';
+  status?: 'pending' | 'accepted' | 'rejected' | 'completed' | 'delivered';
   paymentStatus?: 'Paid' | 'Cash on Delivery'; // Add paymentStatus
 };
 
@@ -31,7 +31,7 @@ type Alteration = {
   _id: string;
   note: string;
   timestamp: string;
-  status: 'pending' | 'accepted' | 'rejected' | 'completed';
+  status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'delivered';
   customer: {
     name: string;
     address: string;
@@ -49,6 +49,26 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
   const [activeTab, setActiveTab] = useState<'orders' | 'alterations'>('orders');
   const [editingTotal, setEditingTotal] = useState<string | null>(null);
   const [tempTotal, setTempTotal] = useState<string>('');
+
+  // Helper function to get status badge styling
+  const getStatusBadgeClass = (status: string) => {
+    // Normalize status to lowercase for comparison
+    const normalizedStatus = status?.toLowerCase();
+    switch (normalizedStatus) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'accepted':
+        return 'bg-green-100 text-green-700';
+      case 'rejected':
+        return 'bg-red-100 text-red-700';
+      case 'completed':
+        return 'bg-blue-100 text-blue-700';
+      case 'delivered':
+        return 'bg-purple-100 text-purple-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
 
   // Remove setInterval polling and add a manual refresh button
   const fetchOrdersAndAlterations = async () => {
@@ -199,9 +219,41 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                             )}
                           </div>
                           <p className="text-md font-bold text-gray-800 mt-2">Total: ₹{unstitchedTotal.toFixed(2)}</p>
-                          <p className="text-sm mt-2">
-                            <span className="font-semibold">Status:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : order.status === 'accepted' ? 'bg-green-100 text-green-700' : order.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{order.status || 'pending'}</span>
-                          </p>
+                          
+                          {/* Status Update Dropdown */}
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="font-semibold">Status:</span>
+                            <select
+                              value={(order.status || 'pending').toLowerCase()}
+                              onChange={async (e) => {
+                                const newStatus = e.target.value as Order['status'];
+                                // Capitalize first letter for order status (backend expects capitalized)
+                                const capitalizedStatus = (newStatus || 'pending').charAt(0).toUpperCase() + (newStatus || 'pending').slice(1) as Order['status'];
+                                try {
+                                  await fetch(`${API_BASE}/api/orders/${order._id}/status`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ status: capitalizedStatus }),
+                                  });
+                                  setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: capitalizedStatus } : o));
+                                } catch (error) {
+                                  console.error('Error updating order status:', error);
+                                  alert('Failed to update order status');
+                                }
+                              }}
+                              className="border rounded px-2 py-1 text-xs"
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="accepted">Accepted</option>
+                              <option value="rejected">Rejected</option>
+                              <option value="completed">Completed</option>
+                              <option value="delivered">Delivered</option>
+                            </select>
+                            <span className={`inline-block px-2 py-1 rounded text-xs ${getStatusBadgeClass(order.status || 'pending')}`}>
+                              {order.status || 'pending'}
+                            </span>
+                          </div>
+                          
                           <p className="text-sm mt-1">
                             <span className="font-semibold">Payment:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{order.paymentStatus === 'Paid' ? 'Paid' : 'Cash on Delivery'}</span>
                           </p>
@@ -277,45 +329,6 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                               </div>
                             )}
                           </div>
-                          {order.status === 'pending' && (
-                            <div className="flex gap-2 mt-2">
-                              <button
-                                onClick={async () => {
-                                  await fetch(`${API_BASE}/api/orders/${order._id}/status`, {
-                                    method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ status: 'accepted' }),
-                                  });
-                                  setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: 'accepted' } : o));
-                                }}
-                                className="px-3 py-1 bg-green-600 text-white rounded shadow hover:bg-green-700 text-xs"
-                              >Accept</button>
-                              <button
-                                onClick={async () => {
-                                  await fetch(`${API_BASE}/api/orders/${order._id}/status`, {
-                                    method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ status: 'rejected' }),
-                                  });
-                                  setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: 'rejected' } : o));
-                                }}
-                                className="px-3 py-1 bg-red-600 text-white rounded shadow hover:bg-red-700 text-xs"
-                              >Reject</button>
-                            </div>
-                          )}
-                          {order.status === 'accepted' && (
-                            <button
-                              onClick={async () => {
-                                await fetch(`${API_BASE}/api/orders/${order._id}/status`, {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ status: 'completed' }),
-                                });
-                                setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: 'completed' } : o));
-                              }}
-                              className="px-3 py-1 bg-blue-600 text-white rounded shadow hover:bg-blue-700 text-xs mt-2"
-                            >Mark as Completed</button>
-                          )}
                         </div>
                       );
                     })
@@ -365,8 +378,9 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                               <option value="accepted">Accepted</option>
                               <option value="rejected">Rejected</option>
                               <option value="completed">Completed</option>
+                              <option value="delivered">Delivered</option>
                             </select>
-                            <span className={`inline-block px-2 py-1 rounded text-xs ${alt.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : alt.status === 'accepted' ? 'bg-green-100 text-green-700' : alt.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{alt.status}</span>
+                            <span className={`inline-block px-2 py-1 rounded text-xs ${getStatusBadgeClass(alt.status)}`}>{alt.status}</span>
                           </div>
                         </div>
                       );
