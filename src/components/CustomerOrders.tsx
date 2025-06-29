@@ -67,6 +67,26 @@ const CustomerOrders = () => {
   const userOrders = orders.filter((order: any) => order.customer && order.customer.email && userEmail && order.customer.email.toLowerCase() === userEmail.toLowerCase());
   const userAlterations = alterations.filter((alt: any) => alt.customer && alt.customer.email && userEmail && alt.customer.email.toLowerCase() === userEmail.toLowerCase());
 
+  // Helper function to get status badge styling (same as admin)
+  const getStatusBadgeClass = (status: string) => {
+    // Normalize status to lowercase for comparison to handle both cases
+    const normalizedStatus = status?.toLowerCase();
+    switch (normalizedStatus) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-700';
+      case 'accepted':
+        return 'bg-green-100 text-green-700';
+      case 'rejected':
+        return 'bg-red-100 text-red-700';
+      case 'completed':
+        return 'bg-blue-100 text-blue-700';
+      case 'delivered':
+        return 'bg-purple-100 text-purple-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
   // Show all orders and alterations, sorted by newest first
   const visibleOrders = userOrders
     .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -177,7 +197,7 @@ const CustomerOrders = () => {
                         </p>
                       )}
                       <p className="text-sm mt-2">
-                        <span className="font-semibold">Status:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : order.status === 'accepted' ? 'bg-green-100 text-green-700' : order.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{order.status || 'pending'}</span>
+                        <span className="font-semibold">Status:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${getStatusBadgeClass(order.status || 'pending')}`}>{order.status || 'pending'}</span>
                       </p>
                       <p className="text-sm mt-1">
                         <span className="font-semibold">Payment:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{order.paymentStatus === 'Paid' ? 'Paid' : 'Cash on Delivery'}</span>
@@ -208,7 +228,7 @@ const CustomerOrders = () => {
                         <p className="text-gray-600 text-sm"><strong>Phone:</strong> {alt.customer.phone}</p>
                       </div>
                       <p className="text-sm mt-2">
-                        <span className="font-semibold">Status:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${alt.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : alt.status === 'accepted' ? 'bg-green-100 text-green-700' : alt.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{alt.status || 'pending'}</span>
+                        <span className="font-semibold">Status:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${getStatusBadgeClass(alt.status || 'pending')}`}>{alt.status || 'pending'}</span>
                       </p>
                     </div>
                   );
