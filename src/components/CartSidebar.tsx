@@ -108,15 +108,37 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
       });
       const data = await res.json();
       const options = {
-        key: 'rzp_test_3FeMCBWy1YEsRn', // Razorpay test key from user
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Use environment variable
         amount: data.amount,
         currency: data.currency,
         order_id: data.id,
         name: 'Laundry/Readymade Suits Service',
         description: 'Order Payment',
-        handler: async function (_response: unknown) {
-          // On payment success, place order
-          await submitOrder('Paid');
+        handler: async function (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
+          try {
+            // Verify payment on backend
+            const verifyResponse = await fetch(`${API_BASE}/api/razorpay/verify-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+            
+            const verifyResult = await verifyResponse.json();
+            
+            if (verifyResult.success) {
+              // On payment success, place order
+              await submitOrder('Paid');
+            } else {
+              alert('Payment verification failed. Please contact support.');
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            alert('Payment verification failed. Please contact support.');
+          }
         },
         prefill: {
           name: pendingOrder?.customer.name,
