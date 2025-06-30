@@ -395,7 +395,7 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
                       <div className="space-y-1">
                         {totalInfo.hasNonLaundry && (
                           <div className="flex justify-between text-sm">
-                            <span>Unstitched Items:</span>
+                            <span>Readymade Items:</span>
                             <span>₹{totalInfo.nonLaundryTotal.toFixed(2)}</span>
                           </div>
                         )}
