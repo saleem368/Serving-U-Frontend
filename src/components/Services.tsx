@@ -23,7 +23,7 @@ const Services = () => {
             onClick={() => setActiveTab('suits')}
             className={`px-6 py-3 font-medium ${activeTab === 'suits' ? 'text-red border-b-2 border-white' : 'text-red-600'}`}
           >
-            Unstitched Suits
+            Readymade Suits
           </button>
         </div>
 
@@ -134,16 +134,16 @@ const Services = () => {
   </div>
 )}
 
-        {/* Unstitched Suits Content - with red background */}
+        {/* Readymade Suits Content - with red background */}
         {activeTab === 'suits' && (
           <div className="bg-blood-red-600 text-white rounded-xl shadow-lg p-6 md:p-8">
-            <h3 className="text-2xl md:text-3xl font-serif mb-6">Exclusive Unstitched Suits Collection</h3>
+            <h3 className="text-2xl md:text-3xl font-serif mb-6">Exclusive Readymade Suits Collection</h3>
             
             <div className="grid md:grid-cols-2 gap-8">
               <div>
                 <h4 className="text-xl font-serif mb-4">Crafted to Perfection</h4>
                 <p className="mb-6 opacity-90">
-                  Our unstitched suits collection represents the pinnacle of textile craftsmanship. 
+                  Our readymade suits collection represents the pinnacle of textile craftsmanship. 
                   Each fabric is hand-selected from premium mills, offering you the foundation for 
                   custom-tailored elegance.
                 </p>
