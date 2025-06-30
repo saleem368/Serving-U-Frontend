@@ -120,8 +120,7 @@ const CustomerOrders = () => {
         <button
           className={`px-4 py-2 font-semibold focus:outline-none ${activeTab === 'orders' ? 'border-b-2 border-blood-red-600 text-blood-red-700' : 'text-gray-500 hover:text-blood-red-600'}`}
           onClick={() => setActiveTab('orders')}
-        >
-          Laundry/Unstitched Orders
+        >            Laundry/Readymade Orders
         </button>
         <button
           className={`ml-4 px-4 py-2 font-semibold focus:outline-none ${activeTab === 'alterations' ? 'border-b-2 border-blood-red-600 text-blood-red-700' : 'text-gray-500 hover:text-blood-red-600'}`}
@@ -171,7 +170,7 @@ const CustomerOrders = () => {
                         )}
                       </div>
                       <div className="mt-2">
-                        <h3 className="text-md font-bold text-gray-800">Unstitched Items:</h3>
+                        <h3 className="text-md font-bold text-gray-800">Readymade Items:</h3>
                         {unstitchedItems.length > 0 ? (
                           <ul className="space-y-2">
                             {unstitchedItems.map((item: any) => (
@@ -187,7 +186,7 @@ const CustomerOrders = () => {
                             ))}
                           </ul>
                         ) : (
-                          <p className="text-gray-400 text-sm italic">No unstitched items in this order.</p>
+                          <p className="text-gray-400 text-sm italic">No readymade items in this order.</p>
                         )}
                       </div>
                       <p className="text-md font-bold text-gray-800 mt-2">Total: ₹{unstitchedTotal.toFixed(2)}</p>
