@@ -112,7 +112,7 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
         amount: data.amount,
         currency: data.currency,
         order_id: data.id,
-        name: 'Laundry/Alteration Service',
+        name: 'Laundry/Readymade Suits Service',
         description: 'Order Payment',
         handler: async function (_response: unknown) {
           // On payment success, place order
@@ -277,7 +277,7 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
                   maxLength={300}
                   style={{ resize: 'vertical' }}
                 />
-                
+
                 <div className="flex justify-center items-center mt-3 mb-1">
                   <span className="text-xs text-gray-500">
                   For any query contact:&nbsp;
