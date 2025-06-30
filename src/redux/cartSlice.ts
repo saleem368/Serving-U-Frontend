@@ -8,6 +8,7 @@ type CartItem = {
   image?: string; // Add image field for cart items
   category?: string; // Add category for laundry/unstitched distinction
   size?: string; // Add size for unstitched items
+  laundryType?: string; // Add laundry type for subcategory (Normal, Dry Clean, etc.)
 };
 
 type CartState = {
