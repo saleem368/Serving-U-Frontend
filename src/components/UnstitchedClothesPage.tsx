@@ -84,7 +84,7 @@ const UnstitchedClothesPage = () => {
               <img
                 key={idx}
                 src={src}
-                alt={`Unstitched ${idx + 1}`}
+                alt={`Readymade ${idx + 1}`}
                 className={`w-32 h-32 object-cover rounded-xl shadow snap-center border-2 border-gray-300 transition-transform duration-200 hover:scale-105`}
                 onClick={() => scrollTo(idx)}
                 style={{ cursor: 'pointer' }}
@@ -110,7 +110,7 @@ const UnstitchedClothesPage = () => {
 
   return (
     <div className="pb-20 bg-gray-50 min-h-screen px-2">
-      <h1 className="text-xl font-bold text-center text-blood-red-600 mb-4">Unstitched Suits</h1>
+      <h1 className="text-xl font-bold text-center text-blood-red-600 mb-4">Readymade Suits</h1>
       <div className="p-1 md:p-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {isLoading ? (
           Array.from({ length: 6 }).map((_, i) => (
