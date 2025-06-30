@@ -80,7 +80,7 @@ const Header = () => {
             Laundry Service
           </Link>
           <Link to="/unstitched-clothes" className="text-gray-700 hover:text-blood-red-600 transition-colors">
-            Unstitched Clothes
+            Readymade Suits
           </Link>
           <Link to="/alteration" className="text-gray-700 hover:text-blood-red-600 transition-colors">
             Book Alteration
@@ -129,7 +129,7 @@ const Header = () => {
                 <Link to="/profile" onClick={() => setShowProfileMenu(false)} className="px-4 py-3 hover:bg-yellow-50 text-blood-red-600 font-semibold text-left text-inherit no-underline">Profile</Link>
                 <div className="border-t" />
                 <Link to="/laundry-service" onClick={() => setShowProfileMenu(false)} className="px-4 py-3 hover:bg-yellow-50 text-left text-inherit no-underline">Laundry Service</Link>
-                <Link to="/unstitched-clothes" onClick={() => setShowProfileMenu(false)} className="px-4 py-3 hover:bg-yellow-50 text-left text-inherit no-underline">Unstitched Clothes</Link>
+                <Link to="/unstitched-clothes" onClick={() => setShowProfileMenu(false)} className="px-4 py-3 hover:bg-yellow-50 text-left text-inherit no-underline">Readymade Suits</Link>
                 <Link to="/alteration" onClick={() => setShowProfileMenu(false)} className="px-4 py-3 hover:bg-yellow-50 text-left text-inherit no-underline">Book Alteration</Link>
                 {isAdmin && <Link to="/admin-editor" onClick={() => setShowProfileMenu(false)} className="px-4 py-3 hover:bg-yellow-50 text-left text-inherit no-underline">Admin Editor</Link>}
                 {isAdmin && <Link to="/orders" onClick={() => setShowProfileMenu(false)} className="px-4 py-3 hover:bg-yellow-50 text-left text-inherit no-underline">Orders</Link>}
