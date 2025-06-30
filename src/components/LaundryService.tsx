@@ -105,7 +105,7 @@ const LaundryServicePage = () => {
                 </div>
               </div>
               <button
-                onClick={() => dispatch(addToCart({ ...item, quantity: 1, category: item.category }))}
+                onClick={() => dispatch(addToCart({ ...item, quantity: 1, category: 'laundry', laundryType: item.category }))}
                 className="bg-blood-red-600 text-white px-3 py-2 rounded-lg text-xs md:text-sm mt-2 md:mt-0"
               >
                 Add to Cart
@@ -147,6 +147,34 @@ const LaundryServicePage = () => {
         {`
           .hide-scrollbar::-webkit-scrollbar { display: none; }
           .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+          
+          .btn-hover { 
+            transition: all 0.2s ease; 
+          }
+          .btn-hover:hover { 
+            transform: translateY(-1px); 
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3); 
+          }
+          
+          .card-hover { 
+            transition: all 0.3s ease; 
+          }
+          .card-hover:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1); 
+          }
+          
+          .fab { 
+            transition: all 0.3s ease; 
+          }
+          .fab:hover { 
+            transform: scale(1.05); 
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4); 
+          }
+          
+          @media (prefers-reduced-motion: reduce) {
+            * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+          }
         `}
       </style>
     </div>
