@@ -129,7 +129,7 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
             className={`px-4 py-2 rounded-t-lg font-semibold transition-all duration-200 border-b-2 ${activeTab === 'orders' ? 'border-blood-red-600 text-blood-red-600 bg-blood-red-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'}`}
             onClick={() => setActiveTab('orders')}
           >
-            Laundry/Unstitched Orders
+            Laundry/Readymade Orders
           </button>
           <button
             className={`px-4 py-2 rounded-t-lg font-semibold transition-all duration-200 border-b-2 ${activeTab === 'alterations' ? 'border-blood-red-600 text-blood-red-600 bg-blood-red-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'}`}
@@ -148,7 +148,7 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
             {/* Tab content */}
             {activeTab === 'orders' && (
               <div>
-                <h2 className="text-xl font-bold text-blood-red-600 mb-2">Laundry/Unstitched Orders</h2>
+                <h2 className="text-xl font-bold text-blood-red-600 mb-2">Laundry/Readymade Orders</h2>
                 <div className="space-y-4">
                   {sortedOrders.length === 0 ? (
                     <p className="text-gray-400 text-sm italic">No orders found.</p>
@@ -195,7 +195,7 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                             )}
                           </div>
                           <div className="mt-2">
-                            <h3 className="text-md font-bold text-gray-800">Unstitched Items:</h3>
+                            <h3 className="text-md font-bold text-gray-800">Readymade Items:</h3>
                             {unstitchedItems.length > 0 ? (
                               <ul className="space-y-2">
                                 {unstitchedItems.map((item: any) => (
@@ -215,7 +215,7 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                                 ))}
                               </ul>
                             ) : (
-                              <p className="text-gray-400 text-sm italic">No unstitched items in this order.</p>
+                              <p className="text-gray-400 text-sm italic">No readymade items in this order.</p>
                             )}
                           </div>
                           <p className="text-md font-bold text-gray-800 mt-2">Total: ₹{unstitchedTotal.toFixed(2)}</p>
