@@ -4,11 +4,121 @@ import { useEffect, useState, useRef } from 'react';
 const API_BASE = import.meta.env.VITE_API_BASE; 
 
 const CustomerOrders = () => {
-  const [orders, setOrders] = useState([]);
-  const [alterations, setAlterations] = useState([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [alterations, setAlterations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'orders' | 'alterations'>('orders');
+  const [paymentLoading, setPaymentLoading] = useState<string | null>(null);
   const prevStatuses = useRef<{ [id: string]: string }>({});
+
+  // Razorpay payment handler
+  const handlePayment = async (orderId: string, amount: number) => {
+    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    if (!razorpayKey) {
+      alert('Payment system not configured. Please contact support.');
+      return;
+    }
+
+    setPaymentLoading(orderId);
+    
+    try {
+      // Create Razorpay order
+      const res = await fetch(`${API_BASE}/api/razorpay/order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to create payment order');
+      }
+      
+      const data = await res.json();
+      
+      // Get customer info for the order
+      const order = orders.find((o: any) => o._id === orderId);
+      
+      const options = {
+        key: razorpayKey,
+        amount: data.amount,
+        currency: data.currency,
+        order_id: data.id,
+        name: 'Laundry/Readymade Suits Service',
+        description: `Payment for Order ${order ? getShortOrderId(idSortedOrders.findIndex((o: any) => o._id === orderId)) : ''}`,
+        handler: async function (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
+          try {
+            // Verify payment on backend
+            const verifyResponse = await fetch(`${API_BASE}/api/razorpay/verify-payment`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+            
+            const verifyResult = await verifyResponse.json();
+            
+            if (verifyResult.success) {
+              // Update order payment status with complete transaction details
+              const updateResponse = await fetch(`${API_BASE}/api/orders/${orderId}/payment`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  paymentStatus: 'Paid',
+                  paymentId: response.razorpay_payment_id,
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpaySignature: response.razorpay_signature
+                }),
+              });
+              
+              if (updateResponse.ok) {
+                // Update local state
+                setOrders(prevOrders => 
+                  prevOrders.map((o: any) => 
+                    o._id === orderId 
+                      ? { ...o, paymentStatus: 'Paid' }
+                      : o
+                  )
+                );
+                alert('Payment successful! Your order payment status has been updated.');
+              } else {
+                alert('Payment successful, but failed to update order status. Please contact support.');
+              }
+            } else {
+              alert('Payment verification failed. Please contact support.');
+            }
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            alert('Payment verification failed. Please contact support.');
+          } finally {
+            setPaymentLoading(null);
+          }
+        },
+        prefill: {
+          name: order?.customer?.name || '',
+          email: order?.customer?.email || '',
+          contact: order?.customer?.phone || '',
+        },
+        theme: { color: '#b91c1c' },
+        modal: {
+          ondismiss: function() {
+            setPaymentLoading(null);
+          }
+        }
+      };
+
+      // @ts-expect-error: Razorpay is loaded globally and may not have TypeScript types
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      console.error('Payment setup error:', error);
+      alert('Failed to setup payment. Please try again later.');
+      setPaymentLoading(null);
+    }
+  };
 
   // Fetch orders and alterations and update only if status changes
   const fetchOrdersAndAlterations = async () => {
@@ -191,9 +301,30 @@ const CustomerOrders = () => {
                       </div>
                       <p className="text-md font-bold text-gray-800 mt-2">Total: ₹{unstitchedTotal.toFixed(2)}</p>
                       {order.adminTotal && (
-                        <p className="text-md font-bold text-blood-red-600 mt-1">
-                          Final Total: ₹{order.adminTotal.toFixed(2)}
-                        </p>
+                        <div className="mt-1">
+                          <p className="text-md font-bold text-blood-red-600">
+                            Final Total: ₹{order.adminTotal.toFixed(2)}
+                          </p>
+                          {order.paymentStatus !== 'Paid' && 
+                           order.status?.toLowerCase() !== 'delivered' && (
+                            <button
+                              onClick={() => handlePayment(order._id, order.adminTotal)}
+                              disabled={paymentLoading === order._id}
+                              className={`mt-2 px-4 py-2 rounded text-sm font-semibold ${
+                                paymentLoading === order._id
+                                  ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
+                                  : 'bg-blood-red-600 text-white hover:bg-blood-red-700'
+                              }`}
+                            >
+                              {paymentLoading === order._id ? 'Processing...' : 'Pay Online'}
+                            </button>
+                          )}
+                          {order.status?.toLowerCase() === 'delivered' && order.paymentStatus !== 'Paid' && (
+                            <p className="mt-2 text-sm text-gray-600 italic">
+                              Payment no longer available - Order has been delivered
+                            </p>
+                          )}
+                        </div>
                       )}
                       <p className="text-sm mt-2">
                         <span className="font-semibold">Status:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${getStatusBadgeClass(order.status || 'pending')}`}>{order.status || 'pending'}</span>
