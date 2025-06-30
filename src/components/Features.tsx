@@ -35,9 +35,9 @@ const Features = () => {
                 <Shirt className="w-8 h-8" />
               </div>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Unstitched Suits</h3>
+            <h3 className="text-lg font-semibold mb-2">Readymade Suits</h3>
             <p className="text-gray-600 text-sm mb-3">
-              Browse our wide and comprehensive collection of custom-made suits. Crafted from the finest fabrics.
+              Browse our wide and comprehensive collection of readymade suits. Crafted from the finest fabrics.
             </p>
             <a href="#" className="text-xs font-medium underline">Learn more</a>
           </div>
