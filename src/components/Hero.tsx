@@ -75,7 +75,7 @@ const Hero = () => {
                 onClick={() => navigate('/unstitched-clothes')}
                 className="mt-2 md:mt-4 bg-blood-red-600 text-white px-3 py-1 md:px-6 md:py-2 hover:bg-blood-red-800 active:scale-95 rounded-lg text-xs md:text-sm shadow-lg group-hover:shadow-blood-red-500/50 focus:outline-none w-full md:w-auto"
               >
-                Unstitched Suits
+                Readymade Suits
               </button>
             </div>
 
