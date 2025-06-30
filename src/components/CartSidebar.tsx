@@ -20,7 +20,7 @@ const getImageUrl = (image: string) => {
 
 type PendingOrder = {
   customer: { name: string; address: string; phone: string; email: string };
-  items: Array<{ _id: string; name: string; price: number; quantity: number; category?: string; size?: string }>;
+  items: Array<{ _id: string; name: string; price: number; quantity: number; category?: string; size?: string; laundryType?: string }>;
 
   total: number;
   note?: string;
@@ -57,7 +57,34 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
   }, [isOpen]);
 
   const calculateTotal = () => {
-    return cart.reduce((total, item) => total + item.price * item.quantity, 0);
+    // Debug: Log cart items to see their categories
+    console.log('🛒 Cart items with categories:', cart.map(item => ({ 
+      name: item.name, 
+      category: item.category, 
+      laundryType: item.laundryType 
+    })));
+
+    // Separate laundry and non-laundry items
+    const laundryItems = cart.filter(item => item.category === 'laundry');
+    const nonLaundryItems = cart.filter(item => item.category !== 'laundry');
+    
+    console.log('🧺 Laundry items:', laundryItems.length);
+    console.log('👔 Non-laundry items:', nonLaundryItems.length);
+    
+    // Only calculate total for non-laundry items (like unstitched suits)
+    const nonLaundryTotal = nonLaundryItems.reduce((total, item) => {
+      const price = parseFloat(item.price.toString());
+      const quantity = parseInt(item.quantity.toString());
+      return total + (price * quantity);
+    }, 0);
+    
+    // Round to 2 decimal places to avoid floating point issues
+    return {
+      hasLaundry: laundryItems.length > 0,
+      hasNonLaundry: nonLaundryItems.length > 0,
+      nonLaundryTotal: Math.round(nonLaundryTotal * 100) / 100,
+      laundryCount: laundryItems.length
+    };
   };
 
   const handleFormContinue = (e: React.FormEvent<HTMLFormElement>) => {
@@ -78,16 +105,20 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
       setError('Please fill in all customer details.');
       return;
     }
+    
+    const totalInfo = calculateTotal();
     const customerWithEmail = { ...customerInfo, email: userEmail };
+    
     const order: PendingOrder = {
       customer: customerWithEmail,
-      items: cart.map(({ _id, name, price, quantity, category, size }) => {
-        const item: { _id: string; name: string; price: number; quantity: number; category?: string; size?: string } = { _id, name, price, quantity };
+      items: cart.map(({ _id, name, price, quantity, category, size, laundryType }) => {
+        const item: { _id: string; name: string; price: number; quantity: number; category?: string; size?: string; laundryType?: string } = { _id, name, price, quantity };
         if (category) item.category = category;
         if (typeof size === 'string' && size.trim() !== '') item.size = size;
+        if (laundryType) item.laundryType = laundryType;
         return item;
       }),
-      total: calculateTotal(),
+      total: totalInfo.nonLaundryTotal, // Only use non-laundry total for now
       note,
     };
     setPendingOrder(order);
@@ -95,25 +126,64 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
   };
 
   const handlePlaceOrder = async (paymentMethod: 'cod' | 'razorpay') => {
+    // For orders with laundry items, we need to wait for admin to set the total
+    const totalInfo = calculateTotal();
+    
+    if (totalInfo.hasLaundry && paymentMethod === 'razorpay') {
+      setError('Online payment for laundry orders will be available after admin sets the final amount. Please use Cash on Delivery for now.');
+      return;
+    }
+    
     // Set paymentStatus on pendingOrder
     if (pendingOrder) {
       setPendingOrder({ ...pendingOrder, paymentStatus: paymentMethod === 'razorpay' ? 'Paid' : 'Cash on Delivery' });
     }
     if (paymentMethod === 'razorpay') {
-      // Razorpay integration (open checkout)
-      const res = await fetch(`${API_BASE}/api/razorpay/order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: pendingOrder?.total }),
+      // Check if Razorpay key is available
+      const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+      console.log('🔑 Razorpay Configuration:', {
+        hasKey: !!razorpayKey,
+        keyType: razorpayKey?.startsWith('rzp_test_') ? 'TEST' : razorpayKey?.startsWith('rzp_live_') ? 'LIVE' : 'UNKNOWN',
+        mode: import.meta.env.MODE
       });
-      const data = await res.json();
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Use environment variable
-        amount: data.amount,
-        currency: data.currency,
-        order_id: data.id,
-        name: 'Laundry/Readymade Suits Service',
-        description: 'Order Payment',
+      
+      if (!razorpayKey) {
+        setError('Payment system not configured. Please contact support.');
+        return;
+      }
+
+      try {
+        // Debug logging
+        console.log('💰 Payment Details:', {
+          total: pendingOrder?.total,
+          items: pendingOrder?.items,
+          calculatedTotal: totalInfo.nonLaundryTotal
+        });
+        
+        // Razorpay integration (open checkout)
+        const res = await fetch(`${API_BASE}/api/razorpay/order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: pendingOrder?.total }),
+        });
+        
+        console.log('📡 API Response Status:', res.status);
+        
+        if (!res.ok) {
+          const errorData = await res.json();
+          console.error('❌ API Error:', errorData);
+          throw new Error(errorData.error || 'Failed to create payment order');
+        }
+        
+        const data = await res.json();
+        console.log('✅ Razorpay Order Data:', data);
+        const options = {
+          key: razorpayKey,
+          amount: data.amount,
+          currency: data.currency,
+          order_id: data.id,
+          name: 'Laundry/Readymade Suits Service',
+          description: 'Order Payment',
         handler: async function (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
           try {
             // Verify payment on backend
@@ -146,11 +216,15 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
           contact: pendingOrder?.customer.phone,
         },
         theme: { color: '#b91c1c' },
-      };
-      // @ts-expect-error: Razorpay is loaded globally and may not have TypeScript types
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-      return;
+      };        // @ts-expect-error: Razorpay is loaded globally and may not have TypeScript types
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+        return;
+      } catch (error) {
+        console.error('Payment setup error:', error);
+        setError('Failed to setup payment. Please try again or use Cash on Delivery.');
+        return;
+      }
     }
     // Cash on Delivery
     await submitOrder('Cash on Delivery');
@@ -231,7 +305,12 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
                         )}
                         <div>
                           <h4 className="font-medium text-sm">{item.name}</h4>
-                          <p className="text-xs text-gray-500">₹{item.price.toFixed(2)}</p>
+                          <p className="text-xs text-gray-500">
+                            {item.category === 'laundry' ? 
+                              <span className="text-blood-red-600">Admin will set price</span> : 
+                              `₹${item.price.toFixed(2)}`
+                            }
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center">
@@ -310,10 +389,36 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
                 </div>
                 {/* Order Summary */}
                 <div className="border-t pt-2">
-                  <div className="flex justify-between font-bold text-sm">
-                    <span>Total:</span>
-                    <span>₹{calculateTotal().toFixed(2)}</span>
-                  </div>
+                  {(() => {
+                    const totalInfo = calculateTotal();
+                    return (
+                      <div className="space-y-1">
+                        {totalInfo.hasNonLaundry && (
+                          <div className="flex justify-between text-sm">
+                            <span>Unstitched Items:</span>
+                            <span>₹{totalInfo.nonLaundryTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {totalInfo.hasLaundry && (
+                          <div className="flex justify-between text-sm">
+                            <span>Laundry Items ({totalInfo.laundryCount}):</span>
+                            <span className="text-blood-red-600 font-medium">See admin total</span>
+                          </div>
+                        )}
+                        {totalInfo.hasNonLaundry && !totalInfo.hasLaundry && (
+                          <div className="flex justify-between font-bold text-sm">
+                            <span>Total:</span>
+                            <span>₹{totalInfo.nonLaundryTotal.toFixed(2)}</span>
+                          </div>
+                        )}
+                        {totalInfo.hasLaundry && (
+                          <div className="text-xs text-gray-600 mt-2">
+                            * Final total will be set by admin after reviewing laundry items
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <button
                     type="submit"
                     className="w-full bg-blood-red-600 text-white py-2 rounded text-sm mt-2"
