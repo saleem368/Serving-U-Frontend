@@ -18,6 +18,7 @@ type Order = {
     name: string;
     address: string;
     phone: string;
+    email: string; // Add email for payment notifications
   };
   items: OrderItem[];
   total: number;
@@ -25,6 +26,9 @@ type Order = {
   timestamp: string;
   status?: 'pending' | 'accepted' | 'rejected' | 'completed' | 'delivered';
   paymentStatus?: 'Paid' | 'Cash on Delivery'; // Add paymentStatus
+  paymentId?: string; // Add payment ID for tracking
+  razorpayOrderId?: string; // Razorpay order ID
+  paymentUpdatedAt?: string; // When payment was updated
 };
 
 type Alteration = {
@@ -49,6 +53,8 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
   const [activeTab, setActiveTab] = useState<'orders' | 'alterations'>('orders');
   const [editingTotal, setEditingTotal] = useState<string | null>(null);
   const [tempTotal, setTempTotal] = useState<string>('');
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [newPayments, setNewPayments] = useState<string[]>([]); // Track newly paid orders
 
   // Helper function to get status badge styling
   const getStatusBadgeClass = (status: string) => {
@@ -80,14 +86,31 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
       ]);
       const ordersData: Order[] = await ordersRes.json();
       const alterationsData: Alteration[] = await alterationsRes.json();
+      
+      // Check for newly paid orders
+      if (orders.length > 0) {
+        const newlyPaid = ordersData.filter(newOrder => {
+          const oldOrder = orders.find(o => o._id === newOrder._id);
+          return oldOrder && oldOrder.paymentStatus !== 'Paid' && newOrder.paymentStatus === 'Paid';
+        });
+        
+        if (newlyPaid.length > 0) {
+          setNewPayments(newlyPaid.map(o => o._id));
+          // Clear the notification after 5 seconds
+          setTimeout(() => setNewPayments([]), 5000);
+        }
+      }
+      
       const filteredOrders = ordersData;
       filteredOrders.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       const filteredAlterations = alterationsData;
       filteredAlterations.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setOrders(filteredOrders);
       setAlterations(filteredAlterations);
+      setLastRefresh(new Date());
       // Debug log
       console.log('Alterations fetched:', filteredAlterations);
+      console.log('Orders with payment status:', filteredOrders.filter(o => o.paymentStatus === 'Paid'));
     } catch {
       setOrders([]);
       setAlterations([]);
@@ -97,7 +120,14 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
 
   useEffect(() => {
     fetchOrdersAndAlterations();
-    // No polling
+    
+    // Auto-refresh every 30 seconds to catch payment updates
+    const interval = setInterval(() => {
+      fetchOrdersAndAlterations();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Helper to generate short sequential order IDs like S0001, S0002, ...
@@ -117,12 +147,25 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
     <div className={isPage ? 'min-h-screen bg-gray-50 p-2 md:p-6 flex flex-col gap-4 md:gap-8' : 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 animate-fadeIn'}>
       <div className={isPage ? 'bg-white p-6 rounded-xl shadow-2xl border border-blood-red-100 max-w-2xl w-full relative mx-auto mt-8' : 'bg-white p-6 rounded-xl shadow-2xl border border-blood-red-100 max-w-2xl w-full relative'}>
         {/* Manual refresh button */}
-        <button
-          onClick={fetchOrdersAndAlterations}
-          className="mb-4 px-4 py-2 bg-blood-red-600 text-white rounded shadow hover:bg-blood-red-700 text-sm"
-        >
-          Refresh Orders & Alterations
-        </button>
+        <div className="flex justify-between items-center mb-4">
+          <button
+            onClick={fetchOrdersAndAlterations}
+            className="px-4 py-2 bg-blood-red-600 text-white rounded shadow hover:bg-blood-red-700 text-sm"
+            disabled={loading}
+          >
+            {loading ? 'Refreshing...' : 'Refresh Orders & Alterations'}
+          </button>
+          <div className="text-right">
+            <span className="text-xs text-gray-500">
+              Last updated: {lastRefresh.toLocaleTimeString()}
+            </span>
+            {newPayments.length > 0 && (
+              <div className="text-xs text-green-600 font-semibold">
+                {newPayments.length} new payment{newPayments.length > 1 ? 's' : ''} received!
+              </div>
+            )}
+          </div>
+        </div>
         {/* Tab Navigation */}
         <div className="flex justify-center gap-4 mb-6">
           <button
@@ -160,7 +203,12 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                       const unstitchedItems = order.items.filter((item: any) => !item.category || item.category === '');
                       const unstitchedTotal = unstitchedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
                       return (
-                        <div key={order._id} className="bg-white p-4 rounded shadow">
+                        <div key={order._id} className={`bg-white p-4 rounded shadow ${newPayments.includes(order._id) ? 'ring-2 ring-green-500 bg-green-50' : ''}`}>
+                          {newPayments.includes(order._id) && (
+                            <div className="mb-2 p-2 bg-green-100 border border-green-400 rounded text-green-700 text-sm font-semibold">
+                              🎉 Payment received for this order!
+                            </div>
+                          )}
                           <h2 className="text-lg font-bold text-gray-800">Order ID: {getShortOrderId(idIdx)}</h2>
                           <p className="text-sm text-gray-600">
                             <strong>Customer:</strong> {order.customer.name}
@@ -170,6 +218,9 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                           </p>
                           <p className="text-sm text-gray-600">
                             <strong>Phone:</strong> {order.customer.phone}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            <strong>Email:</strong> {order.customer.email}
                           </p>
                           <p className="text-sm text-gray-600">
                             <strong>Order Date:</strong> {new Date(order.timestamp).toLocaleString()}
@@ -252,10 +303,30 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                             <span className={`inline-block px-2 py-1 rounded text-xs ${getStatusBadgeClass(order.status || 'pending')}`}>
                               {order.status || 'pending'}
                             </span>
+                            {order.adminTotal && order.paymentStatus !== 'Paid' && order.status?.toLowerCase() !== 'delivered' && (
+                              <span className="text-xs text-blue-600 ml-2">💳 Payment available</span>
+                            )}
+                            {order.adminTotal && order.paymentStatus !== 'Paid' && order.status?.toLowerCase() === 'delivered' && (
+                              <span className="text-xs text-gray-500 ml-2">🚫 Payment disabled (delivered)</span>
+                            )}
                           </div>
                           
                           <p className="text-sm mt-1">
-                            <span className="font-semibold">Payment:</span> <span className={`inline-block px-2 py-1 rounded text-xs ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{order.paymentStatus === 'Paid' ? 'Paid' : 'Cash on Delivery'}</span>
+                            <span className="font-semibold">Payment:</span> 
+                            <span className={`inline-block px-2 py-1 rounded text-xs ml-1 ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                              {order.paymentStatus === 'Paid' ? 'Paid' : 'Cash on Delivery'}
+                            </span>
+                            {order.paymentStatus === 'Paid' && order.paymentId && (
+                              <div className="mt-1 text-xs text-gray-600">
+                                <div>Payment ID: <span className="font-mono">{order.paymentId}</span></div>
+                                {order.razorpayOrderId && (
+                                  <div>Order ID: <span className="font-mono">{order.razorpayOrderId}</span></div>
+                                )}
+                                {order.paymentUpdatedAt && (
+                                  <div>Paid on: {new Date(order.paymentUpdatedAt).toLocaleString()}</div>
+                                )}
+                              </div>
+                            )}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
                             <span className="font-semibold">Admin Total:</span>
