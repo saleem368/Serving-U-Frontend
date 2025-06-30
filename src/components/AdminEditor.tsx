@@ -91,7 +91,7 @@ const AdminEditor = () => {
       return;
     }
     if (section === 'unstitched' && imageFiles.length === 0) {
-      setError('Please upload at least one image for unstitched items.');
+      setError('Please upload at least one image for readymade items.');
       return;
     }
     if (section === 'laundry' && !imageFile) {
@@ -334,12 +334,12 @@ const AdminEditor = () => {
       <h1 className="text-2xl md:text-3xl font-extrabold mb-6 md:mb-8 text-center text-blood-red-600 tracking-tight drop-shadow-lg">Admin Panel</h1>
 
       <div className="mb-6 md:mb-8 flex flex-wrap justify-center gap-2 md:gap-4 relative items-center">
-        {['laundry', 'unstitched'].map((type) => (
+        {['laundry', 'readymade'].map((type) => (
           <button
             key={type}
-            onClick={() => setSection(type as typeof section)}
+            onClick={() => setSection(type === 'readymade' ? 'unstitched' : type as typeof section)}
             className={`px-4 md:px-6 py-2 rounded-full font-semibold shadow transition-all duration-200 border-2 focus:outline-none focus:ring-2 focus:ring-blood-red-600/50 text-xs md:text-base flex items-center gap-1
-              ${section === type ? 'bg-blood-red-600 text-white border-blood-red-600 scale-105' : 'bg-white text-blood-red-600 border-blood-red-200 hover:bg-blood-red-50 hover:border-blood-red-400'}`}
+              ${(section === 'unstitched' && type === 'readymade') || section === type ? 'bg-blood-red-600 text-white border-blood-red-600 scale-105' : 'bg-white text-blood-red-600 border-blood-red-200 hover:bg-blood-red-50 hover:border-blood-red-400'}`}
           >
             {type.charAt(0).toUpperCase() + type.slice(1)}
           </button>
@@ -367,7 +367,7 @@ const AdminEditor = () => {
 
       <div className="space-y-6 md:space-y-8">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold mb-4 text-blood-red-600">{section === 'laundry' ? 'Laundry Items' : 'Unstitched Items'}</h2>
+          <h2 className="text-xl md:text-2xl font-bold mb-4 text-blood-red-600">{section === 'laundry' ? 'Laundry Items' : 'Readymade Items'}</h2>
           {items.length === 0 ? (
             <p className="text-gray-500 text-center">No items found.</p>
           ) : (
@@ -375,7 +375,7 @@ const AdminEditor = () => {
               {items.map((item) => (
                 <li key={item._id} className="flex flex-col md:flex-row md:justify-between md:items-center bg-white p-4 md:p-6 rounded-xl shadow border border-blood-red-100 hover:shadow-blood-red-200 transition-shadow">
                   <div className="flex items-center space-x-3 md:space-x-4 mb-2 md:mb-0">
-                    {/* Show all images for unstitched, or single image for laundry */}
+                    {/* Show all images for readymade, or single image for laundry */}
                     {section === 'unstitched' && item.images && item.images.length > 0 ? (
                       <div className="flex space-x-2 overflow-x-auto max-w-xs scrollbar-none">
                         {item.images.map((img, idx) => (
@@ -391,7 +391,7 @@ const AdminEditor = () => {
                         <p className="text-gray-600 text-xs md:text-sm">Category: <span className="font-semibold text-blood-red-600">{item.category}</span></p>
                       )}
                       <p className="text-gray-600 text-xs md:text-sm">Price: <span className="font-semibold text-blood-red-600">₹{item.price.toFixed(2)}</span></p>
-                      {/* Show sizes for unstitched */}
+                      {/* Show sizes for readymade */}
                       {section === 'unstitched' && item.sizes && item.sizes.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {item.sizes.map((size, idx) => (
@@ -501,7 +501,7 @@ const AdminEditor = () => {
                     </select>
                   </div>
                 )}
-                {/* Description for unstitched only */}
+                {/* Description for readymade only */}
                 {section === 'unstitched' && (
                   <div className="md:col-span-2">
                     <label className="block text-gray-700 font-semibold mb-1">Description</label>
@@ -519,7 +519,7 @@ const AdminEditor = () => {
                     />
                   </div>
                 )}
-                {/* Sizes for unstitched only */}
+                {/* Sizes for readymade only */}
                 {section === 'unstitched' && (
                   <div className="md:col-span-2">
                     <label className="block text-gray-700 font-semibold mb-1">Sizes (select from below)</label>
@@ -557,7 +557,7 @@ const AdminEditor = () => {
                     </div>
                   </div>
                 )}
-                {/* Image upload for laundry and unstitched */}
+                {/* Image upload for laundry and readymade */}
                 <div className="md:col-span-2">
                   <label className="block text-gray-700 font-semibold mb-1">{section === 'laundry' ? 'Image' : 'Images'}</label>
                   <div className="flex gap-2">
@@ -575,7 +575,7 @@ const AdminEditor = () => {
                         aria-label="Upload image for laundry item"
                       />
                     )}
-                    {/* Multi-image upload for unstitched */}
+                    {/* Multi-image upload for readymade */}
                     {section === 'unstitched' && (
                       <>
                         <input
@@ -597,7 +597,7 @@ const AdminEditor = () => {
                             }
                           }}
                           className="w-full border rounded px-3 py-2 file:border-0 file:bg-blood-red-600 file:text-white file:rounded-l-md hover:file:bg-blood-red-700 transition-all duration-150"
-                          aria-label="Upload images for unstitched item"
+                          aria-label="Upload images for readymade item"
                           disabled={imageFiles.length >= 5}
                         />
                         {/* Preview selected images */}
