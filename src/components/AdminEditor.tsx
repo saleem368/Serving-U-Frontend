@@ -1,8 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect, useCallback } from 'react';
 import { SkeletonBox } from './Skeletons';
-import ViewAlterations from './ViewAlterations';
-import ViewOrders from './ViewOrders';
 
 type Item = {
   _id: string;
@@ -38,7 +35,7 @@ const LAUNDRY_CATEGORIES = [
 ];
 
 const AdminEditor = () => {
-  const [section, setSection] = useState<'laundry' | 'unstitched' | 'orders' | 'alterations'>('laundry');
+  const [section, setSection] = useState<'laundry' | 'unstitched'>('laundry');
   const [items, setItems] = useState<Item[]>([]);
   const [newItem, setNewItem] = useState<{ name: string; category: string; price: string; image: string; description?: string; sizes?: string[]; unit?: string }>({
     name: '',
@@ -54,11 +51,9 @@ const AdminEditor = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [isDragActive, setIsDragActive] = useState(false);
 
   // For unstitched multi-image upload
   const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -152,7 +147,6 @@ const AdminEditor = () => {
       setNewItem({ name: '', category: '', price: '', image: '', description: '', sizes: [] });
       setImageFile(null);
       setImageFiles([]);
-      setImagePreviews([]);
       setShowEditBar(false);
     } catch (err: unknown) {
       console.error('Error adding item:', err);
@@ -318,7 +312,6 @@ const AdminEditor = () => {
       setShowEditBar(false);
       setImageFile(null);
       setImageFiles([]); // Clear unstitched image selection
-      setImagePreviews([]); // Clear unstitched image previews
     } catch (err: unknown) {
       console.error('Error updating item:', err);
       setError(
@@ -336,7 +329,7 @@ const AdminEditor = () => {
       <h1 className="text-2xl md:text-3xl font-extrabold mb-6 md:mb-8 text-center text-blood-red-600 tracking-tight drop-shadow-lg">Admin Panel</h1>
 
       <div className="mb-6 md:mb-8 flex flex-wrap justify-center gap-2 md:gap-4 relative items-center">
-        {['laundry', 'readymade', 'orders', 'alterations'].map((type) => (
+        {['laundry', 'readymade'].map((type) => (
           <button
             key={type}
             onClick={() => setSection(type === 'readymade' ? 'unstitched' : type as typeof section)}
@@ -431,16 +424,6 @@ const AdminEditor = () => {
             </ul>
           )}
         </div>
-        )}
-
-        {/* Orders Section */}
-        {section === 'orders' && (
-          <ViewOrders isPage />
-        )}
-
-        {/* Alterations Section */}
-        {section === 'alterations' && (
-          <ViewAlterations isPage />
         )}
 
         {/* Add/Edit Item Modal */}
