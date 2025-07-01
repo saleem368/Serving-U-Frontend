@@ -12,11 +12,25 @@ const OrderSummaryPage: React.FC<OrderSummaryPageProps> = ({ order, onBack, onPl
   const [showTooltip, setShowTooltip] = useState(false);
 
   // Check if order has laundry items and calculate totals
-  const laundryItems = order.items.filter((item: any) => item.category === 'laundry');
-  const nonLaundryItems = order.items.filter((item: any) => item.category !== 'laundry');
+  // Handle both new laundryType field and old category field for backward compatibility
+  const laundryItems = order.items.filter((item: any) => 
+    (item.laundryType && item.laundryType.trim() !== '') || 
+    (item.category === 'laundry')
+  );
+  const readymadeItems = order.items.filter((item: any) => 
+    (!item.laundryType || item.laundryType.trim() === '') && 
+    (item.category !== 'laundry')
+  );
   const hasLaundry = laundryItems.length > 0;
-  const nonLaundryTotal = nonLaundryItems.reduce((total: number, item: any) => total + (item.price * item.quantity), 0);
-  const canPayOnline = !hasLaundry && order.total > 0;
+  const hasReadymade = readymadeItems.length > 0;
+  const readymadeTotal = readymadeItems.reduce((total: number, item: any) => total + (item.price * item.quantity), 0);
+  const hasMixedCart = hasLaundry && hasReadymade;
+  
+  // Payment logic:
+  // - Only readymade items: can pay online for full amount
+  // - Only laundry items: can't pay online (admin sets price)
+  // - Mixed cart: can pay online for readymade items only, laundry to be paid later
+  const canPayOnline = (hasReadymade && readymadeTotal > 0) || (!hasLaundry && order.total > 0);
 
   const handleOnlinePaymentClick = () => {
     if (!canPayOnline) {
@@ -39,10 +53,14 @@ const OrderSummaryPage: React.FC<OrderSummaryPageProps> = ({ order, onBack, onPl
                 <span>
                   {item.name} (x{item.quantity}) 
                   {item.size && <span className="ml-1 text-xs text-blood-red-600">[{item.size}]</span>}
-                  {item.category === 'laundry' && <span className="ml-1 text-xs text-gray-500">[Laundry]</span>}
+                  {(item.laundryType || item.category === 'laundry') && (
+                    <span className="ml-1 text-xs text-gray-500">
+                      [{item.laundryType || 'Laundry'}]
+                    </span>
+                  )}
                 </span>
                 <span>
-                  {item.category === 'laundry' ? 
+                  {(item.laundryType || item.category === 'laundry') ? 
                     <span className="text-blood-red-600 text-xs">Admin will set price</span> : 
                     `₹${(item.price * item.quantity).toFixed(2)}`
                   }
@@ -53,10 +71,10 @@ const OrderSummaryPage: React.FC<OrderSummaryPageProps> = ({ order, onBack, onPl
           
           {/* Display totals based on item types */}
           <div className="space-y-1">
-            {nonLaundryItems.length > 0 && (
+            {readymadeItems.length > 0 && (
               <div className="flex justify-between text-sm">
-                <span>Unstitched Items Total:</span>
-                <span>₹{nonLaundryTotal.toFixed(2)}</span>
+                <span>Readymade Items Total:</span>
+                <span>₹{readymadeTotal.toFixed(2)}</span>
               </div>
             )}
             {laundryItems.length > 0 && (
@@ -65,13 +83,24 @@ const OrderSummaryPage: React.FC<OrderSummaryPageProps> = ({ order, onBack, onPl
                 <span className="text-blood-red-600 font-medium">Admin will set total</span>
               </div>
             )}
-            {nonLaundryItems.length > 0 && !hasLaundry && (
+            {hasReadymade && !hasLaundry && (
               <div className="flex justify-between font-bold">
                 <span>Total:</span>
                 <span>₹{order.total.toFixed(2)}</span>
               </div>
             )}
-            {hasLaundry && (
+            {hasMixedCart && (
+              <div className="space-y-1 mt-2 p-2 bg-blue-50 rounded border">
+                <div className="flex justify-between font-bold text-sm">
+                  <span>Total for Readymade Items:</span>
+                  <span>₹{readymadeTotal.toFixed(2)}</span>
+                </div>
+                <div className="text-xs text-blue-600">
+                  💡 You can pay for readymade items now. Laundry items will be available for payment after admin review.
+                </div>
+              </div>
+            )}
+            {hasLaundry && !hasReadymade && (
               <div className="text-xs text-gray-600 mt-2 p-2 bg-yellow-50 rounded border">
                 📝 Note: Final amount for laundry items will be determined by admin after reviewing your items. You can pay online once the admin sets the final amount.
               </div>
@@ -112,12 +141,15 @@ const OrderSummaryPage: React.FC<OrderSummaryPageProps> = ({ order, onBack, onPl
                   onChange={() => canPayOnline && setPaymentMethod('razorpay')}
                   disabled={!canPayOnline}
                 />
-                Pay Online
+                {hasMixedCart 
+                  ? `Pay Online (₹${readymadeTotal.toFixed(2)} for readymade items)`
+                  : 'Pay Online'
+                }
               </label>
               {showTooltip && (
                 <div className="absolute top-full left-0 mt-1 p-2 bg-black text-white text-xs rounded shadow-lg z-10 w-64">
-                  {hasLaundry 
-                    ? "Online payment is not available for laundry orders. Admin will set the final price after review."
+                  {hasLaundry && !hasReadymade
+                    ? "Online payment is not available for laundry-only orders. Admin will set the final price after review."
                     : "Online payment is not available when total is ₹0."
                   }
                 </div>
