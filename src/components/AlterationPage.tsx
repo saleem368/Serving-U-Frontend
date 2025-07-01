@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Scissors, Phone, MapPin, User, MessageCircle } from 'lucide-react';
+import { Scissors, Phone, MapPin, User, MessageCircle, Hash } from 'lucide-react';
 
 const API_BASE = import.meta.env.VITE_API_BASE 
 
@@ -9,6 +9,7 @@ const AlterationPage = () => {
     address: '',
     phone: '',
     note: '',
+    quantity: 1,
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -41,11 +42,12 @@ const AlterationPage = () => {
             email: userEmail,
           },
           note: form.note,
+          quantity: form.quantity,
         }),
       });
       if (!res.ok) throw new Error('Failed to book appointment');
       setSuccess('Alteration appointment booked! We will contact you soon.');
-      setForm({ name: '', address: '', phone: '', note: '' });
+      setForm({ name: '', address: '', phone: '', note: '', quantity: 1 });
     } catch {
       setError('Failed to book appointment. Please try again.');
     } finally {
@@ -148,6 +150,23 @@ const AlterationPage = () => {
                     onChange={handleChange}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none font-medium"
                     placeholder="Enter your phone number"
+                  />
+                </div>
+                {/* Quantity Field */}
+                <div className="relative">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                    <Hash className="w-4 h-4 mr-2 text-red-600" />
+                    QUANTITY
+                  </label>
+                  <input
+                    type="number"
+                    name="quantity"
+                    value={form.quantity}
+                    onChange={handleChange}
+                    min="1"
+                    max="20"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none font-medium"
+                    placeholder="Number of items to alter"
                   />
                 </div>
                 {/* Note Field */}
