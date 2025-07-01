@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect, useCallback } from 'react';
 import { SkeletonBox } from './Skeletons';
+import ViewAlterations from './ViewAlterations';
+import ViewOrders from './ViewOrders';
 
 type Item = {
   _id: string;
@@ -36,7 +38,7 @@ const LAUNDRY_CATEGORIES = [
 ];
 
 const AdminEditor = () => {
-  const [section, setSection] = useState<'laundry' | 'unstitched'>('laundry');
+  const [section, setSection] = useState<'laundry' | 'unstitched' | 'orders' | 'alterations'>('laundry');
   const [items, setItems] = useState<Item[]>([]);
   const [newItem, setNewItem] = useState<{ name: string; category: string; price: string; image: string; description?: string; sizes?: string[]; unit?: string }>({
     name: '',
@@ -334,7 +336,7 @@ const AdminEditor = () => {
       <h1 className="text-2xl md:text-3xl font-extrabold mb-6 md:mb-8 text-center text-blood-red-600 tracking-tight drop-shadow-lg">Admin Panel</h1>
 
       <div className="mb-6 md:mb-8 flex flex-wrap justify-center gap-2 md:gap-4 relative items-center">
-        {['laundry', 'readymade'].map((type) => (
+        {['laundry', 'readymade', 'orders', 'alterations'].map((type) => (
           <button
             key={type}
             onClick={() => setSection(type === 'readymade' ? 'unstitched' : type as typeof section)}
@@ -344,15 +346,17 @@ const AdminEditor = () => {
             {type.charAt(0).toUpperCase() + type.slice(1)}
           </button>
         ))}
-        <button
-          onClick={() => { setShowEditBar('add'); setEditingItem(null); }}
-          className={`ml-2 flex items-center justify-center px-3 md:px-4 py-2 rounded-full font-semibold shadow transition-all duration-200 border-2 focus:outline-none focus:ring-2 focus:ring-blood-red-600/50 text-xs md:text-base
-            ${section === 'laundry' ? 'bg-blood-red-600 text-white border-blood-red-600 scale-105' : 'bg-white text-blood-red-600 border-blood-red-200 hover:bg-blood-red-50 hover:border-blood-red-400'}`}
-          style={{ height: '2.25rem', minWidth: '1.25rem', position: 'relative', top: '0', right: '0' }}
-          aria-label="Add New Item"
-        >
-          <span className="text-2xl md:text-3xl font-bold leading-none">+</span>
-        </button>
+        {(section === 'laundry' || section === 'unstitched') && (
+          <button
+            onClick={() => { setShowEditBar('add'); setEditingItem(null); }}
+            className={`ml-2 flex items-center justify-center px-3 md:px-4 py-2 rounded-full font-semibold shadow transition-all duration-200 border-2 focus:outline-none focus:ring-2 focus:ring-blood-red-600/50 text-xs md:text-base
+              ${section === 'laundry' ? 'bg-blood-red-600 text-white border-blood-red-600 scale-105' : 'bg-white text-blood-red-600 border-blood-red-200 hover:bg-blood-red-50 hover:border-blood-red-400'}`}
+            style={{ height: '2.25rem', minWidth: '1.25rem', position: 'relative', top: '0', right: '0' }}
+            aria-label="Add New Item"
+          >
+            <span className="text-2xl md:text-3xl font-bold leading-none">+</span>
+          </button>
+        )}
       </div>
 
       {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded shadow text-center animate-pulse">{error}</div>}
@@ -366,13 +370,15 @@ const AdminEditor = () => {
       )}
 
       <div className="space-y-6 md:space-y-8">
-        <div>
-          <h2 className="text-xl md:text-2xl font-bold mb-4 text-blood-red-600">{section === 'laundry' ? 'Laundry Items' : 'Readymade Items'}</h2>
-          {items.length === 0 ? (
-            <p className="text-gray-500 text-center">No items found.</p>
-          ) : (
-            <ul className="space-y-3 md:space-y-4">
-              {items.map((item) => (
+        {/* Laundry and Readymade Items Section */}
+        {(section === 'laundry' || section === 'unstitched') && (
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold mb-4 text-blood-red-600">{section === 'laundry' ? 'Laundry Items' : 'Readymade Items'}</h2>
+            {items.length === 0 ? (
+              <p className="text-gray-500 text-center">No items found.</p>
+            ) : (
+              <ul className="space-y-3 md:space-y-4">
+                {items.map((item) => (
                 <li key={item._id} className="flex flex-col md:flex-row md:justify-between md:items-center bg-white p-4 md:p-6 rounded-xl shadow border border-blood-red-100 hover:shadow-blood-red-200 transition-shadow">
                   <div className="flex items-center space-x-3 md:space-x-4 mb-2 md:mb-0">
                     {/* Show all images for readymade, or single image for laundry */}
@@ -425,6 +431,17 @@ const AdminEditor = () => {
             </ul>
           )}
         </div>
+        )}
+
+        {/* Orders Section */}
+        {section === 'orders' && (
+          <ViewOrders isPage />
+        )}
+
+        {/* Alterations Section */}
+        {section === 'alterations' && (
+          <ViewAlterations isPage />
+        )}
 
         {/* Add/Edit Item Modal */}
         {(showEditBar === 'add' || (showEditBar === 'edit' && editingItem)) && (section === 'laundry' || section === 'unstitched') && (
