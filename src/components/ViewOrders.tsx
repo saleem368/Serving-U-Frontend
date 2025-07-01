@@ -22,13 +22,35 @@ type Order = {
   };
   items: OrderItem[];
   total: number;
-  adminTotal?: number; // Add admin total field
+  adminTotal?: number; // Add admin total field (legacy)
+  
+  // Separate totals
+  readymadeTotal?: number;
+  laundryAdminTotal?: number;
+  
   timestamp: string;
+  
+  // Legacy status (for backward compatibility)
   status?: 'pending' | 'accepted' | 'rejected' | 'completed' | 'delivered';
+  
+  // Separate statuses
+  laundryStatus?: 'Pending' | 'Accepted' | 'Rejected' | 'Completed' | 'Delivered';
+  readymadeStatus?: 'Pending' | 'Accepted' | 'Rejected' | 'Completed' | 'Delivered';
+  
+  // Legacy payment status
   paymentStatus?: 'Paid' | 'Cash on Delivery'; // Add paymentStatus
+  
+  // Separate payment statuses
+  laundryPaymentStatus?: 'Paid' | 'Cash on Delivery' | 'Pending';
+  readymadePaymentStatus?: 'Paid' | 'Cash on Delivery' | 'Pending';
+  
   paymentId?: string; // Add payment ID for tracking
   razorpayOrderId?: string; // Razorpay order ID
   paymentUpdatedAt?: string; // When payment was updated
+  
+  // Separate payment IDs
+  laundryPaymentId?: string;
+  readymadePaymentId?: string;
 };
 
 type Alteration = {
@@ -41,6 +63,11 @@ type Alteration = {
     address: string;
     phone: string;
   };
+  quantity?: number;
+  adminTotal?: number;
+  paymentStatus?: 'Pending' | 'Paid' | 'Failed';
+  paymentId?: string;
+  paymentUpdatedAt?: string;
 };
 
 const API_BASE = import.meta.env.VITE_API_BASE; 
@@ -130,6 +157,85 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Update order status for laundry or readymade items
+  const updateOrderStatus = async (orderId: string, status: string, type: 'laundry' | 'readymade') => {
+    try {
+      console.log(`🔄 Updating ${type} status for order ${orderId} to ${status}`);
+      
+      const endpoint = type === 'laundry' 
+        ? `${API_BASE}/api/orders/${orderId}/laundry-status`
+        : `${API_BASE}/api/orders/${orderId}/readymade-status`;
+      
+      console.log(`📡 Calling endpoint: ${endpoint}`);
+      
+      const response = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+
+      console.log(`📡 Response status: ${response.status}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error(`❌ Error response:`, errorData);
+        throw new Error(errorData.message || `Failed to update ${type} status`);
+      }
+
+      const updatedOrder = await response.json();
+      console.log(`✅ Order updated successfully:`, updatedOrder);
+
+      // If status is changed to "Delivered", automatically update payment status to "Paid"
+      if (status === 'Delivered') {
+        console.log(`🎯 Status changed to Delivered, updating ${type} payment status to Paid`);
+        
+        const paymentEndpoint = type === 'laundry' 
+          ? `${API_BASE}/api/orders/${orderId}/laundry-payment`
+          : `${API_BASE}/api/orders/${orderId}/readymade-payment`;
+        
+        try {
+          const paymentResponse = await fetch(paymentEndpoint, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              paymentStatus: 'Paid',
+              paymentId: `admin_manual_${Date.now()}` // Create a manual payment ID
+            })
+          });
+
+          if (paymentResponse.ok) {
+            console.log(`✅ ${type} payment status automatically updated to Paid`);
+          } else {
+            console.error(`❌ Failed to auto-update ${type} payment status`);
+          }
+        } catch (paymentError) {
+          console.error(`❌ Error auto-updating ${type} payment status:`, paymentError);
+        }
+      }
+
+      // Update local state
+      setOrders(prevOrders => 
+        prevOrders.map(o => 
+          o._id === orderId 
+            ? { 
+                ...o, 
+                [type === 'laundry' ? 'laundryStatus' : 'readymadeStatus']: status,
+                // If delivered, also update payment status in local state
+                ...(status === 'Delivered' ? {
+                  [type === 'laundry' ? 'laundryPaymentStatus' : 'readymadePaymentStatus']: 'Paid'
+                } : {})
+              }
+            : o
+        )
+      );
+      
+      console.log(`✅ Local state updated for ${type} status`);
+    } catch (error) {
+      console.error(`❌ Error updating ${type} status:`, error);
+      alert(`Failed to update ${type} status: ${(error as Error).message}`);
+    }
+  };
+
   // Helper to generate short sequential order IDs like S0001, S0002, ...
   function getShortOrderId(index: number) {
     return `S${(index + 1).toString().padStart(4, '0')}`;
@@ -199,8 +305,15 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                     sortedOrders.map((order: Order) => {
                       // Find the index in the oldest-to-newest array for S0001 logic
                       const idIdx = idSortedOrders.findIndex(o => o._id === order._id);
-                      const laundryItems = order.items.filter((item: any) => item.category && item.category !== '');
-                      const unstitchedItems = order.items.filter((item: any) => !item.category || item.category === '');
+                      // Handle both old and new item structures
+                      const laundryItems = order.items.filter((item: any) => 
+                        (item.laundryType && item.laundryType.trim() !== '') || 
+                        (item.category === 'laundry')
+                      );
+                      const unstitchedItems = order.items.filter((item: any) => 
+                        (!item.laundryType || item.laundryType.trim() === '') && 
+                        (item.category !== 'laundry')
+                      );
                       const unstitchedTotal = unstitchedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
                       return (
                         <div key={order._id} className={`bg-white p-4 rounded shadow ${newPayments.includes(order._id) ? 'ring-2 ring-green-500 bg-green-50' : ''}`}>
@@ -231,175 +344,201 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                               <span className="font-semibold text-yellow-700">Note:</span> <span className="text-gray-800">{order.note}</span>
                             </div>
                           )}
-                          <div className="mt-2">
-                            <h3 className="text-md font-bold text-gray-800">Laundry Items :</h3>
-                            {laundryItems.length > 0 ? (
-                              <ul className="space-y-2">
+                          
+                          {/* 🧺 LAUNDRY SECTION */}
+                          {laundryItems.length > 0 && (
+                            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-lg">🧺</span>
+                                <h3 className="text-md font-bold text-blue-800">Laundry Items</h3>
+                              </div>
+                              
+                              <ul className="space-y-2 mb-3">
                                 {laundryItems.map((item: any) => (
-                                  <li key={item._id} className="flex justify-between text-sm">
-                                    <span>{item.name} (x{item.quantity})</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="text-gray-400 text-sm italic">No laundry items in this order.</p>
-                            )}
-                          </div>
-                          <div className="mt-2">
-                            <h3 className="text-md font-bold text-gray-800">Readymade Items:</h3>
-                            {unstitchedItems.length > 0 ? (
-                              <ul className="space-y-2">
-                                {unstitchedItems.map((item: any) => (
-                                  <li key={item._id} className="flex justify-between text-sm items-center">
+                                  <li key={item._id} className="flex justify-between text-sm bg-white p-2 rounded border">
                                     <span>
                                       {item.name} (x{item.quantity})
-                                      {/* Show size if present as string, or all sizes if array */}
-                                      {item.size && typeof item.size === 'string' && (
-                                        <span className="ml-2 inline-block bg-blood-red-50 text-blood-red-700 border border-blood-red-400 rounded px-2 py-0.5 text-xs font-bold shadow-sm">Size: {item.size}</span>
-                                      )}
-                                      {item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0 && (
-                                        <span className="ml-2 inline-block bg-blood-red-50 text-blood-red-700 border border-blood-red-400 rounded px-2 py-0.5 text-xs font-bold shadow-sm">Sizes: {item.sizes.join(', ')}</span>
-                                      )}
+                                      {item.laundryType && <span className="ml-2 text-xs text-blue-600">[{item.laundryType}]</span>}
                                     </span>
-                                    <span>₹{(item.price * item.quantity).toFixed(2)}</span>
+                                    <span className="text-blue-600 font-medium">Admin will set price</span>
                                   </li>
                                 ))}
                               </ul>
-                            ) : (
-                              <p className="text-gray-400 text-sm italic">No readymade items in this order.</p>
-                            )}
-                          </div>
-                          <p className="text-md font-bold text-gray-800 mt-2">Total: ₹{unstitchedTotal.toFixed(2)}</p>
-                          
-                          {/* Status Update Dropdown */}
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="font-semibold">Status:</span>
-                            <select
-                              value={(order.status || 'pending').toLowerCase()}
-                              onChange={async (e) => {
-                                const newStatus = e.target.value as Order['status'];
-                                // Capitalize first letter for order status (backend expects capitalized)
-                                const capitalizedStatus = (newStatus || 'pending').charAt(0).toUpperCase() + (newStatus || 'pending').slice(1) as Order['status'];
-                                try {
-                                  await fetch(`${API_BASE}/api/orders/${order._id}/status`, {
-                                    method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ status: capitalizedStatus }),
-                                  });
-                                  setOrders(orders => orders.map(o => o._id === order._id ? { ...o, status: capitalizedStatus } : o));
-                                } catch (error) {
-                                  console.error('Error updating order status:', error);
-                                  alert('Failed to update order status');
-                                }
-                              }}
-                              className="border rounded px-2 py-1 text-xs"
-                            >
-                              <option value="pending">Pending</option>
-                              <option value="accepted">Accepted</option>
-                              <option value="rejected">Rejected</option>
-                              <option value="completed">Completed</option>
-                              <option value="delivered">Delivered</option>
-                            </select>
-                            <span className={`inline-block px-2 py-1 rounded text-xs ${getStatusBadgeClass(order.status || 'pending')}`}>
-                              {order.status || 'pending'}
-                            </span>
-                            {order.adminTotal && order.paymentStatus !== 'Paid' && order.status?.toLowerCase() !== 'delivered' && (
-                              <span className="text-xs text-blue-600 ml-2">💳 Payment available</span>
-                            )}
-                            {order.adminTotal && order.paymentStatus !== 'Paid' && order.status?.toLowerCase() === 'delivered' && (
-                              <span className="text-xs text-gray-500 ml-2">🚫 Payment disabled (delivered)</span>
-                            )}
-                          </div>
-                          
-                          <p className="text-sm mt-1">
-                            <span className="font-semibold">Payment:</span> 
-                            <span className={`inline-block px-2 py-1 rounded text-xs ml-1 ${order.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                              {order.paymentStatus === 'Paid' ? 'Paid' : 'Cash on Delivery'}
-                            </span>
-                            {order.paymentStatus === 'Paid' && order.paymentId && (
-                              <div className="mt-1 text-xs text-gray-600">
-                                <div>Payment ID: <span className="font-mono">{order.paymentId}</span></div>
-                                {order.razorpayOrderId && (
-                                  <div>Order ID: <span className="font-mono">{order.razorpayOrderId}</span></div>
-                                )}
-                                {order.paymentUpdatedAt && (
-                                  <div>Paid on: {new Date(order.paymentUpdatedAt).toLocaleString()}</div>
-                                )}
-                              </div>
-                            )}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span className="font-semibold">Admin Total:</span>
-                            {editingTotal === order._id ? (
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="number"
-                                  value={tempTotal}
-                                  onChange={(e) => setTempTotal(e.target.value)}
-                                  className="border rounded px-2 py-1 w-20 text-sm"
-                                  placeholder="0"
-                                />
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      console.log('Updating admin total for order:', order._id, 'to:', tempTotal);
-                                      const response = await fetch(`${API_BASE}/api/orders/${order._id}/total`, {
-                                        method: 'PATCH',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ adminTotal: parseFloat(tempTotal) || null }),
-                                      });
-                                      
-                                      if (!response.ok) {
-                                        const errorData = await response.json();
-                                        throw new Error(errorData.message || 'Failed to update admin total');
-                                      }
-                                      
-                                      const updatedOrder = await response.json();
-                                      console.log('Successfully updated order:', updatedOrder);
-                                      
-                                      setOrders(orders => orders.map(o => 
-                                        o._id === order._id 
-                                          ? { ...o, adminTotal: updatedOrder.adminTotal } 
-                                          : o
-                                      ));
-                                      setEditingTotal(null);
-                                      setTempTotal('');
-                                    } catch (error) {
-                                      console.error('Error updating admin total:', error);
-                                      alert('Failed to update admin total: ' + (error as Error).message);
-                                    }
-                                  }}
-                                  className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+                              
+                              {/* Laundry Status */}
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold text-sm">Status:</span>
+                                <select
+                                  value={order.laundryStatus || 'Pending'}
+                                  onChange={(e) => updateOrderStatus(order._id, e.target.value, 'laundry')}
+                                  className="text-sm border rounded px-2 py-1"
                                 >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setEditingTotal(null);
-                                    setTempTotal('');
-                                  }}
-                                  className="bg-gray-500 text-white px-2 py-1 rounded text-xs hover:bg-gray-600"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <span className="text-blood-red-600 font-bold">
-                                  ₹{order.adminTotal ? order.adminTotal.toFixed(2) : 'Not set'}
+                                  <option value="Pending">Pending</option>
+                                  <option value="Accepted">Accepted</option>
+                                  <option value="Completed">Completed</option>
+                                  <option value="Delivered">Delivered</option>
+                                  <option value="Rejected">Rejected</option>
+                                </select>
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusBadgeClass(order.laundryStatus || 'Pending')}`}>
+                                  {order.laundryStatus || 'Pending'}
                                 </span>
-                                <button
-                                  onClick={() => {
-                                    setEditingTotal(order._id);
-                                    setTempTotal(order.adminTotal ? order.adminTotal.toString() : '');
-                                  }}
-                                  className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
-                                >
-                                  Edit
-                                </button>
                               </div>
-                            )}
-                          </div>
+                              
+                              {/* Laundry Admin Total */}
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold text-sm">Admin Total:</span>
+                                {editingTotal === `${order._id}-laundry` ? (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      value={tempTotal}
+                                      onChange={(e) => setTempTotal(e.target.value)}
+                                      className="text-sm border rounded px-2 py-1 w-24"
+                                      placeholder="0"
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const response = await fetch(`${API_BASE}/api/orders/${order._id}/laundry-total`, {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ laundryAdminTotal: parseFloat(tempTotal) || 0 }),
+                                          });
+                                          
+                                          if (!response.ok) {
+                                            const errorData = await response.json();
+                                            throw new Error(errorData.message || 'Failed to update laundry total');
+                                          }
+                                          
+                                          const updatedOrder = await response.json();
+                                          
+                                          setOrders(orders => orders.map(o => 
+                                            o._id === order._id 
+                                              ? { ...o, laundryAdminTotal: updatedOrder.laundryAdminTotal, adminTotal: updatedOrder.adminTotal } 
+                                              : o
+                                          ));
+                                          setEditingTotal(null);
+                                          setTempTotal('');
+                                        } catch (error) {
+                                          console.error('Error updating laundry total:', error);
+                                          alert('Failed to update laundry total: ' + (error as Error).message);
+                                        }
+                                      }}
+                                      className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setEditingTotal(null);
+                                        setTempTotal('');
+                                      }}
+                                      className="bg-gray-500 text-white px-2 py-1 rounded text-xs hover:bg-gray-600"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-blood-red-600 font-bold">
+                                      ₹{order.laundryAdminTotal ? order.laundryAdminTotal.toFixed(2) : 'Not set'}
+                                    </span>
+                                    <button
+                                      onClick={() => {
+                                        setEditingTotal(`${order._id}-laundry`);
+                                        setTempTotal(order.laundryAdminTotal ? order.laundryAdminTotal.toString() : '');
+                                      }}
+                                      className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                                    >
+                                      {order.laundryAdminTotal ? 'Edit' : 'Set'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Laundry Payment Status */}
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-sm">Payment:</span>
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                  order.laundryPaymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
+                                  order.laundryPaymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {order.laundryPaymentStatus || 'Pending'}
+                                </span>
+                                {order.laundryPaymentId && (
+                                  <span className="text-xs text-gray-500">ID: {order.laundryPaymentId.substring(0, 8)}...</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* 👔 READYMADE SECTION */}
+                          {unstitchedItems.length > 0 && (
+                            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-lg">👔</span>
+                                <h3 className="text-md font-bold text-green-800">Readymade Items</h3>
+                              </div>
+                              
+                              <ul className="space-y-2 mb-3">
+                                {unstitchedItems.map((item: any) => (
+                                  <li key={item._id} className="flex justify-between text-sm bg-white p-2 rounded border">
+                                    <span>
+                                      {item.name} (x{item.quantity})
+                                      {item.size && typeof item.size === 'string' && (
+                                        <span className="ml-2 inline-block bg-green-100 text-green-700 border border-green-400 rounded px-2 py-0.5 text-xs font-bold">Size: {item.size}</span>
+                                      )}
+                                      {item.sizes && Array.isArray(item.sizes) && item.sizes.length > 0 && (
+                                        <span className="ml-2 inline-block bg-green-100 text-green-700 border border-green-400 rounded px-2 py-0.5 text-xs font-bold">Sizes: {item.sizes.join(', ')}</span>
+                                      )}
+                                    </span>
+                                    <span className="font-medium">₹{(item.price * item.quantity).toFixed(2)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                              
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold text-sm">Total: ₹{unstitchedTotal.toFixed(2)}</span>
+                              </div>
+                              
+                              {/* Readymade Status */}
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold text-sm">Status:</span>
+                                <select
+                                  value={order.readymadeStatus || 'Pending'}
+                                  onChange={(e) => updateOrderStatus(order._id, e.target.value, 'readymade')}
+                                  className="text-sm border rounded px-2 py-1"
+                                >
+                                  <option value="Pending">Pending</option>
+                                  <option value="Accepted">Accepted</option>
+                                  <option value="Completed">Completed</option>
+                                  <option value="Delivered">Delivered</option>
+                                  <option value="Rejected">Rejected</option>
+                                </select>
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${getStatusBadgeClass(order.readymadeStatus || 'Pending')}`}>
+                                  {order.readymadeStatus || 'Pending'}
+                                </span>
+                              </div>
+                              
+                              {/* Readymade Payment Status */}
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-sm">Payment:</span>
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                  order.readymadePaymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
+                                  order.readymadePaymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {order.readymadePaymentStatus || 'Cash on Delivery'}
+                                </span>
+                                {order.readymadePaymentId && (
+                                  <span className="text-xs text-gray-500">ID: {order.readymadePaymentId.substring(0, 8)}...</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -429,19 +568,142 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                             <p className="text-gray-600 text-sm"><strong>Name:</strong> {alt.customer.name}</p>
                             <p className="text-gray-600 text-sm"><strong>Address:</strong> {alt.customer.address}</p>
                             <p className="text-gray-600 text-sm"><strong>Phone:</strong> {alt.customer.phone}</p>
+                            {alt.quantity && <p className="text-gray-600 text-sm"><strong>Quantity:</strong> {alt.quantity}</p>}
                           </div>
+
+                          {/* Admin Total */}
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="font-semibold text-sm">Admin Total:</span>
+                            {editingTotal === `${alt._id}-alteration` ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  value={tempTotal}
+                                  onChange={(e) => setTempTotal(e.target.value)}
+                                  className="text-sm border rounded px-2 py-1 w-24"
+                                  placeholder="0"
+                                  min="0"
+                                  step="0.01"
+                                />
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const response = await fetch(`${API_BASE}/api/alterations/${alt._id}/admin-total`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ adminTotal: parseFloat(tempTotal) || 0 }),
+                                      });
+                                      
+                                      if (!response.ok) {
+                                        const errorData = await response.json();
+                                        throw new Error(errorData.message || 'Failed to update alteration total');
+                                      }
+                                      
+                                      const updatedAlteration = await response.json();
+                                      
+                                      setAlterations(alterations => alterations.map(a => 
+                                        a._id === alt._id 
+                                          ? { ...a, adminTotal: updatedAlteration.adminTotal } 
+                                          : a
+                                      ));
+                                      setEditingTotal(null);
+                                      setTempTotal('');
+                                    } catch (error) {
+                                      console.error('Error updating alteration total:', error);
+                                      alert('Failed to update alteration total: ' + (error as Error).message);
+                                    }
+                                  }}
+                                  className="bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingTotal(null);
+                                    setTempTotal('');
+                                  }}
+                                  className="bg-gray-500 text-white px-2 py-1 rounded text-xs hover:bg-gray-600"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="text-blood-red-600 font-bold">
+                                  ₹{alt.adminTotal ? alt.adminTotal.toFixed(2) : 'Not set'}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setEditingTotal(`${alt._id}-alteration`);
+                                    setTempTotal(alt.adminTotal ? alt.adminTotal.toString() : '');
+                                  }}
+                                  className="bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+                                >
+                                  {alt.adminTotal ? 'Edit' : 'Set'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Payment Status */}
+                          {alt.adminTotal && alt.adminTotal > 0 && (
+                            <div className="flex items-center gap-2 mt-2">
+                              <span className="font-semibold text-sm">Payment Status:</span>
+                              <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                                alt.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
+                                alt.paymentStatus === 'Failed' ? 'bg-red-100 text-red-800' :
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {alt.paymentStatus || 'Pending'}
+                              </span>
+                              {alt.paymentId && (
+                                <span className="text-xs text-gray-500">ID: {alt.paymentId}</span>
+                              )}
+                              {alt.paymentUpdatedAt && (
+                                <span className="text-xs text-gray-500">
+                                  Updated: {new Date(alt.paymentUpdatedAt).toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                          )}
+
                           <div className="flex items-center gap-2 mt-2">
                             <span className="font-semibold">Status:</span>
                             <select
                               value={alt.status}
                               onChange={async (e) => {
                                 const status = e.target.value as Alteration['status'];
-                                await fetch(`${API_BASE}/api/alterations/${alt._id}/status`, {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ status }),
-                                });
-                                setAlterations(alterations => alterations.map(a => a._id === alt._id ? { ...a, status } : a));
+                                try {
+                                  const response = await fetch(`${API_BASE}/api/alterations/${alt._id}/status`, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ 
+                                      status,
+                                      // If setting to delivered, mark payment as paid if admin total is set
+                                      ...(status === 'delivered' && alt.adminTotal && alt.adminTotal > 0 && alt.paymentStatus !== 'Paid' ? { paymentStatus: 'Paid' } : {})
+                                    }),
+                                  });
+                                  
+                                  if (!response.ok) {
+                                    const errorData = await response.json();
+                                    throw new Error(errorData.message || 'Failed to update status');
+                                  }
+
+                                  const updatedAlteration = await response.json();
+                                  setAlterations(alterations => alterations.map(a => 
+                                    a._id === alt._id 
+                                      ? { 
+                                          ...a, 
+                                          status: updatedAlteration.status,
+                                          paymentStatus: updatedAlteration.paymentStatus || a.paymentStatus,
+                                          paymentUpdatedAt: updatedAlteration.paymentUpdatedAt || a.paymentUpdatedAt
+                                        } 
+                                      : a
+                                  ));
+                                } catch (error) {
+                                  console.error('Error updating alteration status:', error);
+                                  alert('Failed to update alteration status: ' + (error as Error).message);
+                                }
                               }}
                               className="border rounded px-2 py-1 text-xs"
                             >
