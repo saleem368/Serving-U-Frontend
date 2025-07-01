@@ -57,22 +57,19 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
   }, [isOpen]);
 
   const calculateTotal = () => {
-    // Debug: Log cart items to see their categories
-    console.log('🛒 Cart items with categories:', cart.map(item => ({ 
-      name: item.name, 
-      category: item.category, 
-      laundryType: item.laundryType 
-    })));
-
-    // Separate laundry and non-laundry items
-    const laundryItems = cart.filter(item => item.category === 'laundry');
-    const nonLaundryItems = cart.filter(item => item.category !== 'laundry');
+    // Separate laundry and readymade items based on laundryType field
+    // Also handle old structure with category field for backward compatibility
+    const laundryItems = cart.filter(item => 
+      (item.laundryType && item.laundryType.trim() !== '') || 
+      (item.category === 'laundry')
+    );
+    const readymadeItems = cart.filter(item => 
+      (!item.laundryType || item.laundryType.trim() === '') && 
+      (item.category !== 'laundry')
+    );
     
-    console.log('🧺 Laundry items:', laundryItems.length);
-    console.log('👔 Non-laundry items:', nonLaundryItems.length);
-    
-    // Only calculate total for non-laundry items (like unstitched suits)
-    const nonLaundryTotal = nonLaundryItems.reduce((total, item) => {
+    // Only calculate total for readymade items (suits, etc.)
+    const readymadeTotal = readymadeItems.reduce((total, item) => {
       const price = parseFloat(item.price.toString());
       const quantity = parseInt(item.quantity.toString());
       return total + (price * quantity);
@@ -81,9 +78,10 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
     // Round to 2 decimal places to avoid floating point issues
     return {
       hasLaundry: laundryItems.length > 0,
-      hasNonLaundry: nonLaundryItems.length > 0,
-      nonLaundryTotal: Math.round(nonLaundryTotal * 100) / 100,
-      laundryCount: laundryItems.length
+      hasReadymade: readymadeItems.length > 0,
+      readymadeTotal: Math.round(readymadeTotal * 100) / 100,
+      laundryCount: laundryItems.length,
+      readymadeCount: readymadeItems.length
     };
   };
 
@@ -109,6 +107,21 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
     const totalInfo = calculateTotal();
     const customerWithEmail = { ...customerInfo, email: userEmail };
     
+    // For orders with only laundry items, total will be 0 until admin sets price
+    // For mixed orders, use readymade total
+    // For readymade-only orders, use full total
+    let orderTotal = 0;
+    if (totalInfo.hasReadymade && !totalInfo.hasLaundry) {
+      // Pure readymade order
+      orderTotal = totalInfo.readymadeTotal;
+    } else if (totalInfo.hasReadymade && totalInfo.hasLaundry) {
+      // Mixed order - use readymade total for now
+      orderTotal = totalInfo.readymadeTotal;
+    } else {
+      // Pure laundry order - total will be 0 until admin sets price
+      orderTotal = 0;
+    }
+    
     const order: PendingOrder = {
       customer: customerWithEmail,
       items: cart.map(({ _id, name, price, quantity, category, size, laundryType }) => {
@@ -118,7 +131,7 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
         if (laundryType) item.laundryType = laundryType;
         return item;
       }),
-      total: totalInfo.nonLaundryTotal, // Only use non-laundry total for now
+      total: orderTotal,
       note,
     };
     setPendingOrder(order);
@@ -129,8 +142,9 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
     // For orders with laundry items, we need to wait for admin to set the total
     const totalInfo = calculateTotal();
     
-    if (totalInfo.hasLaundry && paymentMethod === 'razorpay') {
-      setError('Online payment for laundry orders will be available after admin sets the final amount. Please use Cash on Delivery for now.');
+    // If razorpay and has laundry items, only allow payment for readymade items
+    if (paymentMethod === 'razorpay' && totalInfo.hasLaundry && !totalInfo.hasReadymade) {
+      setError('Online payment for laundry-only orders will be available after admin sets the final amount. Please use Cash on Delivery for now.');
       return;
     }
     
@@ -141,11 +155,6 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
     if (paymentMethod === 'razorpay') {
       // Check if Razorpay key is available
       const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
-      console.log('🔑 Razorpay Configuration:', {
-        hasKey: !!razorpayKey,
-        keyType: razorpayKey?.startsWith('rzp_test_') ? 'TEST' : razorpayKey?.startsWith('rzp_live_') ? 'LIVE' : 'UNKNOWN',
-        mode: import.meta.env.MODE
-      });
       
       if (!razorpayKey) {
         setError('Payment system not configured. Please contact support.');
@@ -153,18 +162,27 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
       }
 
       try {
-        // Debug logging
-        console.log('💰 Payment Details:', {
-          total: pendingOrder?.total,
-          items: pendingOrder?.items,
-          calculatedTotal: totalInfo.nonLaundryTotal
-        });
+        // Calculate payment amount (only readymade items if mixed cart)
+        const paymentAmount = totalInfo.hasLaundry && totalInfo.hasReadymade 
+          ? totalInfo.readymadeTotal  // Mixed cart: pay only for readymade items
+          : pendingOrder?.total || 0;      // Pure readymade cart: pay full amount
+        
+        // Ensure payment amount is valid
+        if (!paymentAmount || paymentAmount <= 0) {
+          setError('Invalid payment amount. Please check your order total.');
+          return;
+        }
+        
+        console.log('💰 Payment amount calculated:', paymentAmount, 'for order total:', pendingOrder?.total);
         
         // Razorpay integration (open checkout)
+        console.log('🔗 API endpoint:', `${API_BASE}/api/razorpay/order`);
+        console.log('💰 Sending payment amount:', paymentAmount);
+        
         const res = await fetch(`${API_BASE}/api/razorpay/order`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: pendingOrder?.total }),
+          body: JSON.stringify({ amount: paymentAmount }),
         });
         
         console.log('📡 API Response Status:', res.status);
@@ -172,11 +190,12 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
         if (!res.ok) {
           const errorData = await res.json();
           console.error('❌ API Error:', errorData);
-          throw new Error(errorData.error || 'Failed to create payment order');
+          throw new Error(errorData.error || errorData.message || 'Failed to create payment order');
         }
         
         const data = await res.json();
-        console.log('✅ Razorpay Order Data:', data);
+        console.log('✅ Razorpay order data:', data);
+        
         const options = {
           key: razorpayKey,
           amount: data.amount,
@@ -234,15 +253,28 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
   const submitOrder = async (paymentStatus?: 'Paid' | 'Cash on Delivery') => {
     try {
       const orderToSend = paymentStatus ? { ...pendingOrder, paymentStatus } : pendingOrder;
+      
+      // Debug: Log the order data being sent
+      console.log('📤 Sending order data:', JSON.stringify(orderToSend, null, 2));
+      console.log('🔗 API endpoint:', `${API_BASE}/api/orders`);
+      
       const response = await fetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderToSend),
       });
+      
+      console.log('📡 Response status:', response.status);
+      
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ Backend error response:', errorData);
         throw new Error(errorData.message || 'Failed to place order');
       }
+      
+      const result = await response.json();
+      console.log('✅ Order placed successfully:', result);
+      
       setSuccess('Order submitted successfully!');
       setCustomerInfo({ name: '', address: '', phone: '' });
       setNote('');
@@ -257,7 +289,8 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
         onClose();
       }, 1500);
     } catch (err) {
-      setError('Failed to place order. Please try again.');
+      console.error('🚨 Submit order error:', err);
+      setError(`Failed to place order: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
@@ -393,10 +426,10 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
                     const totalInfo = calculateTotal();
                     return (
                       <div className="space-y-1">
-                        {totalInfo.hasNonLaundry && (
+                        {totalInfo.hasReadymade && (
                           <div className="flex justify-between text-sm">
                             <span>Readymade Items:</span>
-                            <span>₹{totalInfo.nonLaundryTotal.toFixed(2)}</span>
+                            <span>₹{totalInfo.readymadeTotal.toFixed(2)}</span>
                           </div>
                         )}
                         {totalInfo.hasLaundry && (
@@ -405,10 +438,10 @@ const CartSidebar = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
                             <span className="text-blood-red-600 font-medium">See admin total</span>
                           </div>
                         )}
-                        {totalInfo.hasNonLaundry && !totalInfo.hasLaundry && (
+                        {totalInfo.hasReadymade && !totalInfo.hasLaundry && (
                           <div className="flex justify-between font-bold text-sm">
                             <span>Total:</span>
-                            <span>₹{totalInfo.nonLaundryTotal.toFixed(2)}</span>
+                            <span>₹{totalInfo.readymadeTotal.toFixed(2)}</span>
                           </div>
                         )}
                         {totalInfo.hasLaundry && (
