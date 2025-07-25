@@ -301,10 +301,10 @@ const CustomerOrders = () => {
     return `S${(index + 1).toString().padStart(4, '0')}`;
   }
 
-  // For S0001 logic: sort oldest to newest for ID assignment
-  const idSortedOrders = [...userOrders].sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  const idSortedAlterations = [...userAlterations].sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  // For display: sort newest to oldest
+  // For S0001 logic: sort ALL orders/alterations oldest to newest for ID assignment (same as admin)
+  const idSortedOrders = [...orders].sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  const idSortedAlterations = [...alterations].sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  // For display: sort user's orders newest to oldest
   const sortedOrders = [...userOrders].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   const sortedAlterations = [...userAlterations].sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
@@ -522,6 +522,7 @@ const CustomerOrders = () => {
                         <p className="text-gray-600 text-sm"><strong>Address:</strong> {alt.customer.address}</p>
                         <p className="text-gray-600 text-sm"><strong>Phone:</strong> {alt.customer.phone}</p>
                         <p className="text-gray-600 text-sm"><strong>Quantity:</strong> {alt.quantity || 1} item(s)</p>
+                        <p className="text-gray-600 text-sm"><strong>Shop No.:</strong> {alt.shopNo || '1'}</p>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2 items-center">
                         <span className="font-semibold text-sm">Status:</span>
