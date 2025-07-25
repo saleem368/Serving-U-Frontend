@@ -64,6 +64,7 @@ type Alteration = {
     phone: string;
   };
   quantity?: number;
+  shopNo?: string;
   adminTotal?: number;
   paymentStatus?: 'Pending' | 'Paid' | 'Failed';
   paymentId?: string;
@@ -569,6 +570,7 @@ const ViewOrders = ({ open = true, onClose, isPage = false }: { open?: boolean; 
                             <p className="text-gray-600 text-sm"><strong>Address:</strong> {alt.customer.address}</p>
                             <p className="text-gray-600 text-sm"><strong>Phone:</strong> {alt.customer.phone}</p>
                             {alt.quantity && <p className="text-gray-600 text-sm"><strong>Quantity:</strong> {alt.quantity}</p>}
+                            <p className="text-gray-600 text-sm"><strong>Shop No.:</strong> {alt.shopNo || '1'}</p>
                           </div>
 
                           {/* Admin Total */}
