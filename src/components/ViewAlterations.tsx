@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_BASE ;
+const API_BASE = import.meta.env.VITE_API_BASE;
 
 type Alteration = {
   _id: string;
@@ -11,6 +11,7 @@ type Alteration = {
   };
   note: string;
   quantity?: number;
+  shopNo?: string;
   status: 'pending' | 'accepted' | 'rejected' | 'completed' | 'delivered';
   adminTotal?: number;
   paymentStatus?: 'Paid' | 'Cash on Delivery' | 'Pending';
@@ -21,6 +22,16 @@ const ViewAlterations = ({ open = true, onClose, isPage = false }: { open?: bool
   const [alterations, setAlterations] = useState<Alteration[]>([]);
   const [loading, setLoading] = useState(true);
   const [adminTotals, setAdminTotals] = useState<{ [id: string]: string }>({});
+
+  // Helper to generate short sequential order IDs like S0001, S0002, ...
+  function getShortOrderId(index: number) {
+    return `S${(index + 1).toString().padStart(4, '0')}`;
+  }
+
+  // For S0001 logic: sort oldest to newest for ID assignment (same as admin)
+  const idSortedAlterations = [...alterations].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  // For display: sort newest to oldest
+  const sortedAlterations = [...alterations].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
   const updateAdminTotal = async (alterationId: string, adminTotal: number) => {
     try {
@@ -130,109 +141,113 @@ const ViewAlterations = ({ open = true, onClose, isPage = false }: { open?: bool
           <p>No alteration appointments found.</p>
         ) : (
           <div className="space-y-4">
-            {alterations.map((alt) => (
-              <div key={alt._id} className="bg-white p-4 rounded shadow border">
-                <h3 className="text-lg font-bold text-gray-800">Alteration ID: {alt._id}</h3>
-                <p className="text-sm text-gray-600">
-                  <strong>Date:</strong> {new Date(alt.timestamp).toLocaleString()}
-                </p>
-                <div className="mt-2 p-2 bg-yellow-50 border-l-4 border-yellow-400 rounded">
-                  <span className="font-semibold text-yellow-700">Note:</span> <span className="text-gray-800">{alt.note}</span>
-                </div>
-                <div className="mt-2">
-                  <p className="text-gray-600 text-sm"><strong>Name:</strong> {alt.customer.name}</p>
-                  <p className="text-gray-600 text-sm"><strong>Address:</strong> {alt.customer.address}</p>
-                  <p className="text-gray-600 text-sm"><strong>Phone:</strong> {alt.customer.phone}</p>
-                  <p className="text-gray-600 text-sm"><strong>Quantity:</strong> {alt.quantity || 1} item(s)</p>
-                </div>
-                
-                {/* Admin Total Section */}
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                  <h4 className="font-semibold text-blue-800 mb-2">Admin Pricing</h4>
-                  {alt.adminTotal ? (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-700">Current Total: ₹{alt.adminTotal.toFixed(2)}</span>
-                      <button
-                        onClick={() => {
-                          const newTotal = prompt('Enter new admin total:', alt.adminTotal?.toString());
-                          if (newTotal && !isNaN(Number(newTotal)) && Number(newTotal) > 0) {
-                            updateAdminTotal(alt._id, Number(newTotal));
-                          }
-                        }}
-                        className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-                      >
-                        Update
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        placeholder="Enter total amount"
-                        value={adminTotals[alt._id] || ''}
-                        onChange={(e) => setAdminTotals(prev => ({ ...prev, [alt._id]: e.target.value }))}
-                        className="flex-1 px-3 py-1 border border-gray-300 rounded text-sm"
-                        min="0"
-                        step="0.01"
-                      />
-                      <button
-                        onClick={() => {
-                          const amount = Number(adminTotals[alt._id]);
-                          if (amount > 0) {
-                            updateAdminTotal(alt._id, amount);
-                          } else {
-                            alert('Please enter a valid amount greater than 0');
-                          }
-                        }}
-                        disabled={!adminTotals[alt._id] || Number(adminTotals[alt._id]) <= 0}
-                        className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                      >
-                        Set Total
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex items-center gap-4 mt-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">Status:</span>
-                    <select
-                      value={alt.status}
-                      onChange={(e) => updateStatus(alt._id, e.target.value)}
-                      className="border rounded px-2 py-1 text-xs"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="accepted">Accepted</option>
-                      <option value="rejected">Rejected</option>
-                      <option value="completed">Completed</option>
-                      <option value="delivered">Delivered</option>
-                    </select>
-                    <span className={`inline-block px-2 py-1 rounded text-xs ${
-                      alt.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                      alt.status === 'accepted' ? 'bg-green-100 text-green-700' : 
-                      alt.status === 'rejected' ? 'bg-red-100 text-red-700' : 
-                      alt.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                      'bg-purple-100 text-purple-700'
-                    }`}>
-                      {alt.status}
-                    </span>
+            {sortedAlterations.map((alt) => {
+              const idIdx = idSortedAlterations.findIndex(a => a._id === alt._id);
+              return (
+                <div key={alt._id} className="bg-white p-4 rounded shadow border">
+                  <h3 className="text-lg font-bold text-gray-800">Alteration ID: {getShortOrderId(idIdx)}</h3>
+                  <p className="text-sm text-gray-600">
+                    <strong>Date:</strong> {new Date(alt.timestamp).toLocaleString()}
+                  </p>
+                  <div className="mt-2 p-2 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                    <span className="font-semibold text-yellow-700">Note:</span> <span className="text-gray-800">{alt.note}</span>
+                  </div>
+                  <div className="mt-2">
+                    <p className="text-gray-600 text-sm"><strong>Name:</strong> {alt.customer.name}</p>
+                    <p className="text-gray-600 text-sm"><strong>Address:</strong> {alt.customer.address}</p>
+                    <p className="text-gray-600 text-sm"><strong>Phone:</strong> {alt.customer.phone}</p>
+                    <p className="text-gray-600 text-sm"><strong>Quantity:</strong> {alt.quantity || 1} item(s)</p>
+                    <p className="text-gray-600 text-sm"><strong>Shop No.:</strong> {alt.shopNo || '1'}</p>
                   </div>
                   
-                  {alt.adminTotal && (
+                  {/* Admin Total Section */}
+                  <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                    <h4 className="font-semibold text-blue-800 mb-2">Admin Pricing</h4>
+                    {alt.adminTotal ? (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700">Current Total: ₹{alt.adminTotal.toFixed(2)}</span>
+                        <button
+                          onClick={() => {
+                            const newTotal = prompt('Enter new admin total:', alt.adminTotal?.toString());
+                            if (newTotal && !isNaN(Number(newTotal)) && Number(newTotal) > 0) {
+                              updateAdminTotal(alt._id, Number(newTotal));
+                            }
+                          }}
+                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                        >
+                          Update
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          placeholder="Enter total amount"
+                          value={adminTotals[alt._id] || ''}
+                          onChange={(e) => setAdminTotals(prev => ({ ...prev, [alt._id]: e.target.value }))}
+                          className="flex-1 px-3 py-1 border border-gray-300 rounded text-sm"
+                          min="0"
+                          step="0.01"
+                        />
+                        <button
+                          onClick={() => {
+                            const amount = Number(adminTotals[alt._id]);
+                            if (amount > 0) {
+                              updateAdminTotal(alt._id, amount);
+                            } else {
+                              alert('Please enter a valid amount greater than 0');
+                            }
+                          }}
+                          disabled={!adminTotals[alt._id] || Number(adminTotals[alt._id]) <= 0}
+                          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        >
+                          Set Total
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-4 mt-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold">Payment:</span>
+                      <span className="font-semibold">Status:</span>
+                      <select
+                        value={alt.status}
+                        onChange={(e) => updateStatus(alt._id, e.target.value)}
+                        className="border rounded px-2 py-1 text-xs"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="completed">Completed</option>
+                        <option value="delivered">Delivered</option>
+                      </select>
                       <span className={`inline-block px-2 py-1 rounded text-xs ${
-                        alt.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 
-                        alt.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 
-                        'bg-blue-100 text-blue-700'
+                        alt.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                        alt.status === 'accepted' ? 'bg-green-100 text-green-700' : 
+                        alt.status === 'rejected' ? 'bg-red-100 text-red-700' : 
+                        alt.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                        'bg-purple-100 text-purple-700'
                       }`}>
-                        {alt.paymentStatus || 'Pending'}
+                        {alt.status}
                       </span>
                     </div>
-                  )}
+                    
+                    {alt.adminTotal && (
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">Payment:</span>
+                        <span className={`inline-block px-2 py-1 rounded text-xs ${
+                          alt.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 
+                          alt.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-700' : 
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {alt.paymentStatus || 'Pending'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
