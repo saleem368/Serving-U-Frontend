@@ -10,12 +10,13 @@ const AlterationPage = () => {
     phone: '',
     note: '',
     quantity: 1,
+    shopNo: '1',
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -43,11 +44,12 @@ const AlterationPage = () => {
           },
           note: form.note,
           quantity: form.quantity,
+          shopNo: form.shopNo,
         }),
       });
       if (!res.ok) throw new Error('Failed to book appointment');
       setSuccess('Alteration appointment booked! We will contact you soon.');
-      setForm({ name: '', address: '', phone: '', note: '', quantity: 1 });
+      setForm({ name: '', address: '', phone: '', note: '', quantity: 1, shopNo: '1' });
     } catch {
       setError('Failed to book appointment. Please try again.');
     } finally {
@@ -168,6 +170,23 @@ const AlterationPage = () => {
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none font-medium"
                     placeholder="Number of items to alter"
                   />
+                </div>
+                {/* Shop No. Field */}
+                <div className="relative">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                    <MapPin className="w-4 h-4 mr-2 text-red-600" />
+                    SHOP NO.
+                  </label>
+                  <select
+                    name="shopNo"
+                    value={form.shopNo}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:outline-none font-medium bg-white"
+                  >
+                    <option value="1">Shop No. 1</option>
+                    <option value="2">Shop No. 2</option>
+                    <option value="3">Shop No. 3</option>
+                  </select>
                 </div>
                 {/* Note Field */}
                 <div className="relative">
